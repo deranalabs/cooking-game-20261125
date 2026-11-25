@@ -119,6 +119,16 @@ const STAGES = {
   },
 };
 
+// kitchen0 .. kitchen5: each kitchen at the start of its shift with its hazard live, for layout checks.
+for (let k = 0; k < 6; k++) {
+  STAGES['kitchen' + k] = (seed) => {
+    const game = createGame(k, seed);
+    game.hazard.active = game.hazard.lasts; game.hazard.target = game.kitchen.list.find((t) => t.type === 'pan');
+    put(game, game.hazard.target.col, game.hazard.target.row, ing('beef', 0, { progress: 0.5 }));
+    return { game, screen: 'play', t: 0.5, prewarm: 1 };
+  };
+}
+
 export function stageShot(name, seed) {
   const make = STAGES[name] || STAGES.cover;
   const s = make(seed);
