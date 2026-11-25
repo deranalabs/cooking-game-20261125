@@ -92,6 +92,13 @@ test('tickets expire and break the combo', () => {
   assert.equal(game.combo, 0);
 });
 
+test('new tickets avoid dishes already on the board', () => {
+  const game = createGame(0, 4);
+  while (game.tickets.length < 3 && game.clock < 60) tickGame(game, 1 / 60, idle);
+  const ids = game.tickets.map((t) => t.dish.id);
+  assert.equal(new Set(ids).size, ids.length, ids.join(','));
+});
+
 test('same seed, same ticket sequence', () => {
   const a = createGame(2, 7); const b = createGame(2, 7);
   run(a, 60); run(b, 60);

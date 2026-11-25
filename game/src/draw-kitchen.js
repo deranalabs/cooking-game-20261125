@@ -187,7 +187,6 @@ export function drawChef(ctx, chef, t) {
   const handX = x + fx * 26; const handY = y + fy * 20 - 4;
   ctx.beginPath(); ctx.ellipse(chef.x, chef.y + 20, 24, 9, 0, 0, Math.PI * 2);
   ctx.fillStyle = 'rgba(40,20,10,0.35)'; ctx.fill();
-  if (chef.hold && fy < 0) drawHeld(ctx, chef.hold, handX, handY - 8);
   // body: white coat, red neckerchief
   ctx.beginPath(); ctx.ellipse(x, y + 4, 22, 20, 0, 0, Math.PI * 2);
   ctx.fillStyle = '#fbfbf7'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.stroke();
@@ -212,6 +211,7 @@ export function drawChef(ctx, chef, t) {
   }
   ctx.beginPath(); ctx.roundRect(hx - 11, hy - 26, 22, 12, 3); ctx.fill();
   if (chef.hold && fy >= 0) drawHeld(ctx, chef.hold, handX, handY + 6);
+  if (chef.hold && fy < 0) drawHeld(ctx, chef.hold, x, y - 72);   // walking away: carried overhead
 }
 
 export function drawKitchen(ctx, game, t, needed) {

@@ -19,10 +19,11 @@ export function addTicket(game, dish) {
   return ticket;
 }
 
+// A new ticket prefers a dish not already on the board, so routes keep changing.
 function pickDish(game) {
-  const menu = game.shift.menu;
-  let id = game.rng.pick(menu);
-  if (id === game.lastDish) id = game.rng.pick(menu);
+  const onBoard = new Set(game.tickets.map((t) => t.dish.id));
+  const fresh = game.shift.menu.filter((id) => !onBoard.has(id) && id !== game.lastDish);
+  const id = game.rng.pick(fresh.length ? fresh : game.shift.menu);
   game.lastDish = id;
   return dishById(id);
 }
