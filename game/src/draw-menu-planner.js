@@ -28,7 +28,8 @@ export function drawMenuPlanner(ctx, kitchenIndex, plan, t, W, H) {
   card(ctx, 240, 116, 800, 46, 23, '#c8261a', 3);
   label(ctx, `⚠ ${k.hazard.label}: ${k.blurb}`, W / 2, 140, 19, '#fff2d0', 'center');
   label(ctx, `PLAN TODAY'S MENU  ${plan.length} / ${MENU_SIZE}`, W / 2, 196, 26, plan.length === MENU_SIZE ? '#9fe08a' : '#ffd34d', 'center');
-  label(ctx, 'bigger dishes pay more, but take more stops; new dishes from this kitchen are marked NEW', W / 2, 224, 15, '#e9d3a8', 'center', 'normal');
+  const kit = (k.stations || []).map((s) => `${s.count} ${s.what}${s.count > 1 ? 's' : ''}`).join(' · ');
+  label(ctx, `STATIONS: ${kit}`, W / 2, 224, 14, '#e9d3a8', 'center', 'bold');
   unlockedDishes(kitchenIndex).forEach((id, i) => {
     const d = dishById(id); const r = planCardRect(i);
     const on = plan.includes(id);
