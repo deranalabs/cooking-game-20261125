@@ -2,6 +2,7 @@
 // Title screen: the game's name, the six kitchens of the career with their stars, and the wallet.
 import { KITCHENS, rankFor } from './kitchens/roster.js';
 import { totalStars } from './ledger.js';
+import { unlockedDishes } from './menu-planner.js';
 import { INK, card, label, title, star, coin, button, backdrop } from './draw-ui.js';
 
 // Four cards on the top row, three centred under them.
@@ -31,7 +32,8 @@ export function drawTitle(ctx, ledger, chosen, t, W, H) {
     card(ctx, r.x + 12, r.y + 12, 26, 26, 6, k.palette.side, 2);
     label(ctx, String(i + 1), r.x + 25, r.y + 26, 15, '#fff8e8', 'center');
     label(ctx, k.name, r.x + 48, r.y + 26, k.name.length > 18 ? 17 : 20, open ? INK : '#d8c8a8');
-    label(ctx, open ? `⚠ ${k.hazard.label}` : 'LOCKED: earn a star in the kitchen before', r.x + 16, r.y + 58, open ? 16 : 13, open ? '#b0301a' : '#fff2d0', 'left');
+    label(ctx, open ? `⚠ ${k.hazard.label} · ${unlockedDishes(i).length} dishes` : 'LOCKED: earn a star in the kitchen before', r.x + 16, r.y + 58, open ? 17 : 13, open ? '#b0301a' : '#fff2d0', 'left');
+    if (!open) label(ctx, `${k.hazard.label} · ${unlockedDishes(i).length} dishes`, r.x + 16, r.y + 82, 14, '#fff2d0', 'left');
     if (open) label(ctx, k.place, r.x + 16, r.y + 82, 14, '#5a3524', 'left', 'normal');
     for (let s = 0; s < 3; s++) star(ctx, r.x + r.w - 82 + s * 30, r.y + 108, 12, s < (ledger.stars[i] || 0));
   });
