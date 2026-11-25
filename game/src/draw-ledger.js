@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Stars ledger screen after a shift: stars, served, tips, burnt, best combo, the career so far and the critic's word.
-import { KITCHENS } from './kitchens/roster.js';
+import { KITCHENS, rankFor } from './kitchens/roster.js';
 import { REGULARS } from './regulars.js';
 import { criticComment, totalStars } from './ledger.js';
 import { drawGuestFace } from './draw-guest.js';
@@ -44,7 +44,7 @@ export function drawLedger(ctx, game, ledger, t, W, H) {
     ['Best combo', 'x' + game.bestCombo],
     ['Walked out', String(game.missed)],
     ['Critic plates', String(game.critics.length)],
-    ['Rival Sable Rook', `${(ledger.rival || {}).won || 0}-${(ledger.rival || {}).lost || 0}`],
+    ['Rival Sable Rook', `${((ledger.rival || {}).log || []).map((v) => (v.won ? 'W' : 'L')).join(' ')}   ${(ledger.rival || {}).won || 0}-${(ledger.rival || {}).lost || 0}`],
   ];
   rows.forEach(([k, v], i) => {
     const y = 262 + i * 32;
@@ -57,13 +57,18 @@ export function drawLedger(ctx, game, ledger, t, W, H) {
   label(ctx, `stars at ${game.shift.stars.join(' / ')}`, 450, 532, 14, '#8a6a4a', 'center', 'normal');
   // career column: every kitchen with its best stars, and the wallet the shop spends
   card(ctx, 650, 160, 350, 386, 14, '#f3e3c0', 3);
-  label(ctx, `CAREER  ★ ${totalStars(ledger)} / ${KITCHENS.length * 3}`, 825, 184, 18, INK, 'center');
+  const rank = rankFor(totalStars(ledger));
+  label(ctx, `★ ${totalStars(ledger)} / ${KITCHENS.length * 3}  ·  ${rank.title.toUpperCase()}`, 825, 180, 17, INK, 'center');
+  if (rank.next) label(ctx, `${rank.need} more ★ to ${rank.next}`, 825, 198, 12, '#8a6a4a', 'center', 'normal');
   KITCHENS.forEach((k, i) => {
-    const y = 218 + i * 36;
+    const y = 226 + i * 35;
     const open = i <= ledger.unlocked;
     card(ctx, 664, y - 15, 322, 30, 8, i === game.kitchenIndex ? '#ffe7a0' : open ? '#fff6df' : '#d8c8a8', 2);
     label(ctx, open ? k.name : 'locked kitchen', 676, y, 15, open ? INK : '#8a7a62');
     for (let s = 0; s < 3; s++) star(ctx, 910 + s * 24, y, 10, s < (ledger.stars[i] || 0));
+    const best = Math.max((ledger.best || [])[i] || 0, i === game.kitchenIndex ? game.score : 0);
+    if (open && best) label(ctx, String(best), 888, y, 12, '#8a6a4a', 'right');
+    if (k.rival) { card(ctx, 846, y - 9, 18, 18, 9, '#5a1a3a', 1.5); label(ctx, 'R', 855, y + 0.5, 11, '#ffd34d', 'center'); }
   });
   coin(ctx, 690, 486, 20);
   label(ctx, `Wallet $${ledger.wallet}`, 720, 480, 24, INK);

@@ -89,6 +89,16 @@ test('rival critic visits two kitchens and the ledger keeps a running tally', ()
   assert.equal(ledger.rival.won + ledger.rival.lost, 1);
 });
 
+test('career: a chapter per kitchen and ranks that climb with stars', async () => {
+  const { CHAPTERS, rankFor, chapterOf, rivalKitchens } = await import('../game/src/kitchens/roster.js');
+  assert.equal(CHAPTERS.length, KITCHENS.length);
+  assert.equal(chapterOf(6).kitchen.id, 'night-market');
+  assert.equal(rankFor(0).title, 'Galley Hand');
+  assert.ok(rankFor(21).level > rankFor(8).level);
+  assert.equal(rankFor(21).next, null);
+  assert.equal(rivalKitchens().length, 2);
+});
+
 test('shop: eight upgrades with two tiers each, bought in order, each changing a modifier', () => {
   assert.ok(UPGRADES.length >= 8);
   const ledger = createLedger(); ledger.wallet = 10000;

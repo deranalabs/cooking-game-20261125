@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Title screen: the game's name, the six kitchens of the career with their stars, and the wallet.
-import { KITCHENS } from './kitchens/roster.js';
+import { KITCHENS, rankFor } from './kitchens/roster.js';
 import { totalStars } from './ledger.js';
 import { INK, card, label, title, star, coin, button, backdrop } from './draw-ui.js';
 
@@ -21,9 +21,9 @@ export function drawTitle(ctx, ledger, chosen, t, W, H) {
   title(ctx, 'KITCHEN', 0, 74, 84, '#ff8a3a', 'center', 12);
   ctx.restore();
   label(ctx, 'Seven kitchens, eleven regulars and critics, one rival. Chop, fry, bake and grill before they walk out.', W / 2, 252, 20, '#fff2d0', 'center');
-  card(ctx, W / 2 - 170, 276, 340, 38, 19, '#2a1a12', 3, '#c9963f');
-  coin(ctx, W / 2 - 145, 295, 13);
-  label(ctx, `Wallet $${ledger.wallet}   ★ ${totalStars(ledger)} / ${KITCHENS.length * 3}`, W / 2 + 12, 296, 19, '#ffd34d', 'center');
+  card(ctx, W / 2 - 230, 276, 460, 38, 19, '#2a1a12', 3, '#c9963f');
+  coin(ctx, W / 2 - 205, 295, 13);
+  label(ctx, `Wallet $${ledger.wallet}   ★ ${totalStars(ledger)} / ${KITCHENS.length * 3}   ${rankFor(totalStars(ledger)).title}`, W / 2 + 12, 296, 19, '#ffd34d', 'center');
   KITCHENS.forEach((k, i) => {
     const r = kitchenCardRect(i);
     const sel = i === chosen; const open = i <= ledger.unlocked;

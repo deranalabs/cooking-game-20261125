@@ -33,7 +33,7 @@ export function buildKitchen(plan) {
   plan.forEach((line, row) => {
     grid.push([...line].map((ch, col) => {
       const tile = {
-        col, row, type: CRATES[ch] ? 'crate' : TYPES[ch], ingredient: CRATES[ch] || null, item: null,
+        col, row, type: CRATES[ch] ? 'crate' : TYPES[ch], ingredient: CRATES[ch] || null, item: null, awning: ch === '~',
         x: col * TILE + TILE / 2, y: KITCHEN_Y + row * TILE + TILE / 2,
       };
       list.push(tile);

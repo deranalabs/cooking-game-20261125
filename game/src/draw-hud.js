@@ -3,7 +3,7 @@
 import { drawIngredient, drawPlate, readyStage } from './draw-food.js';
 import { stepsOf, dishPrice, INGREDIENTS } from './recipes.js';
 import { KITCHEN_Y } from './kitchen-layout.js';
-import { KITCHENS } from './kitchens/roster.js';
+import { KITCHENS, chapterOf } from './kitchens/roster.js';
 import { moodOf, guestLine, MOOD_COLOR, traitTag } from './regulars.js';
 import { hazardStatus } from './hazards.js';
 import { drawGuestFace } from './draw-guest.js';
@@ -183,6 +183,22 @@ export function drawReactions(ctx, fx, t) {
     ctx.restore();
     ctx.restore();
   }
+}
+
+// The chapter card for the first seconds of a shift: chapter number and title, the kitchen, its story beat.
+export function drawShiftIntro(ctx, game) {
+  const left = 3.6 - game.clock;
+  if (game.phase !== 'play' || left <= 0) return;
+  const ch = chapterOf(game.kitchenIndex);
+  const a = Math.min(1, left * 1.5);
+  const slide = Math.max(0, 0.35 - game.clock) * 300;
+  ctx.save(); ctx.globalAlpha = a; ctx.translate(W / 2, KITCHEN_Y + 250 - slide);
+  rr(ctx, -430, -70, 860, 140, 18, 'rgba(36,22,15,0.92)', 4, '#c9963f');
+  text(ctx, `CHAPTER ${ch.number}`, 0, -42, 16, '#c9963f', 'center');
+  outlined(ctx, ch.title.toUpperCase(), 0, -10, 34, '#ffd34d', 'center', 7);
+  text(ctx, ch.kitchen.story, 0, 26, 16, '#fff2d0', 'center', 'italic bold');
+  text(ctx, `⚠ ${ch.kitchen.hazard.label}: ${ch.kitchen.blurb}`, 0, 50, 14, '#ff9a7a', 'center');
+  ctx.restore();
 }
 
 const STEP_DONE = { chop: 'Chopped', pan: 'Pan-fried', pot: 'Boiled', fry: 'Fried', bake: 'Baked', grill: 'Grilled' };

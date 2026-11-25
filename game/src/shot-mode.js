@@ -70,6 +70,12 @@ const STAGES = {
     put(game, 11, 4, ing('onion', 2, { overcook: 4.3 }));
     put(game, 12, 4, ing('rice', 0, { progress: 0.4 }));
     put(game, 8, 4, ing('pepper', 0, { progress: 0.55 }));
+    // prep waiting on the awning counter: a skewer plate started, chicken and potato laid out
+    put(game, 5, 7, ing('chicken', 0));
+    put(game, 6, 7, ing('potato', 0));
+    put(game, 7, 7, plate(['chicken', 'pepper']));
+    put(game, 9, 7, ing('pepper', 1));
+    put(game, 10, 7, ing('dough', 0));
     chefAt(game, 8, 3, { x: 0, y: 1 }, null);
     game.chef.chopping = true;
     return { game, screen: 'play', t: 1.18, prewarm: 2,
@@ -158,7 +164,8 @@ const STAGES = {
     game.stars = starsFor(game);
     put(game, 4, 2, plate(['rice', 'mushroom', 'cheese']));
     const ledger = career({ wallet: 214, owned: ['knife', 'jar'], levels: { knife: 1, jar: 1 }, stars: [3, 3, 2, 3], unlocked: 4,
-      served: 46, shifts: 4, rival: { won: 2, lost: 1, log: [] } });
+      served: 46, shifts: 4, best: [281, 236, 344, 0], rival: { won: 2, lost: 1,
+        log: [{ kitchen: 'Saffron Rooftop', won: false }, { kitchen: 'Saffron Rooftop', won: true }, { kitchen: 'Saffron Rooftop', won: true }] } });
     return { game, screen: 'ledger', t: 1.6, prewarm: 0.5, ledger };
   },
   // The menu planner before the Ember Hot Line.

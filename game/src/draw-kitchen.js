@@ -188,6 +188,20 @@ function drawLid(ctx, tile, t) {
   ctx.beginPath(); ctx.arc(tile.x + 18, tile.y - 26 - lift, 3, 0, Math.PI * 2); ctx.fillStyle = INK; ctx.fill();
 }
 
+// A stall counter under a striped canvas awning: red and cream stripes with a scalloped front edge.
+function drawAwning(ctx, x, y, col) {
+  for (let k = 0; k < 4; k++) {
+    ctx.fillStyle = (k + col) % 2 ? '#f3e6cc' : '#c8402a';
+    ctx.fillRect(x + 2 + k * 15, y + 2, 15, 14);
+  }
+  for (let k = 0; k < 4; k++) {
+    ctx.beginPath(); ctx.arc(x + 9.5 + k * 15, y + 16, 7.5, 0, Math.PI);
+    ctx.fillStyle = (k + col) % 2 ? '#f3e6cc' : '#c8402a'; ctx.fill();
+    ctx.lineWidth = 1.5; ctx.strokeStyle = INK; ctx.stroke();
+  }
+  ctx.lineWidth = 2; ctx.strokeStyle = INK; ctx.strokeRect(x + 2, y + 2, H - 4, 14);
+}
+
 function heatOn(tile) {
   return !!tile.item && (nextStep(tile.item) === tile.type || (isReady(tile.item) && lastStep(tile.item) === tile.type));
 }
@@ -239,7 +253,9 @@ function drawStation(ctx, tile, t, glow) {
         ctx.fillStyle = '#fbfaf5'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = INK; ctx.stroke();
       }
       return;
-    default: counterBase(ctx, x, y);
+    default:
+      counterBase(ctx, x, y);
+      if (tile.awning) drawAwning(ctx, x, y, tile.col);
   }
 }
 

@@ -15,7 +15,7 @@ import { createInput, inside } from './input.js';
 import { createAudio } from './audio.js';
 import { createFx, handleEvents, tickFx, drawFx } from './effects.js';
 import { drawKitchen, drawTileBars, drawVignette } from './draw-kitchen.js';
-import { drawBoard, drawRushBanner, drawHintBar, drawReactions, ticketRect, W, HGT } from './draw-hud.js';
+import { drawBoard, drawRushBanner, drawHintBar, drawReactions, drawShiftIntro, ticketRect, W, HGT } from './draw-hud.js';
 import { drawTitle, kitchenCardRect, startButton } from './draw-title.js';
 import { drawMenuPlanner, planCardRect, planStartButton } from './draw-menu-planner.js';
 import { drawShop, shopCardRect, shopDoneButton } from './draw-shop.js';
@@ -172,6 +172,7 @@ function draw() {
   ctx.restore();
   if (fx.burnFlash > 0) { ctx.fillStyle = `rgba(255,60,20,${fx.burnFlash * 0.28})`; ctx.fillRect(0, 0, W, HGT); }
   drawReactions(ctx, fx, t);
+  if (app.screen === 'play' && !app.still) drawShiftIntro(ctx, g);
   drawRushBanner(ctx, fx, g, t);
   drawHintBar(ctx, g);
   if (app.screen === 'title') drawTitle(ctx, app.ledger, app.chosen, t, W, HGT);
