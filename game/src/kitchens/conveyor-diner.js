@@ -13,7 +13,7 @@ const CHEVRON_GAP = 22;      // px between chevrons
 // plating end rides across the room while you work.
 const PLAN = [
   '#bltcm#ofsrn#R#HH',
-  'K.......#.......#',
+  'K...............#',
   'K.......#.......X',
   '#.AAA>>>>>>>>>>.#',
   '#...............#',

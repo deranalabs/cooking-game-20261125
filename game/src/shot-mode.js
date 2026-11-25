@@ -97,7 +97,7 @@ const STAGES = {
     put(game, 4, 3, plate(['bun', 'beef', 'onion']));
     put(game, 11, 3, plate(['noodles', 'beef']));
     put(game, 14, 0, plate(['bun', 'beef', 'lettuce', 'tomato'], { serving: 0.4, ticketUid: game.tickets[3].uid }));
-    put(game, 4, 6, ing('tomato', 0, { progress: 0.6 }));
+    put(game, 9, 6, ing('tomato', 0, { progress: 0.6 }));
     const h = game.hazard;
     h.active = 6; h.lasts = 7; h.target = tileAt(game.kitchen, 6, 0);
     chefAt(game, 9, 2, { x: 1, y: 0 }, plate(['chicken']));
