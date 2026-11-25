@@ -156,7 +156,7 @@ function tileText(ctx, str, x, y, size, color = '#fff6df') {
 // The station's name is a nameplate on the counter's front face, under the food; bars ride above the food.
 function drawStationLabel(ctx, tile) {
   const name = STATION_LABEL[tile.type];
-  if (name) tileText(ctx, name, tile.x, tile.y + H / 2 - 8, 15, tile.type === 'hatch' ? '#ffd34d' : '#fff6df');
+  if (name) tileText(ctx, name, tile.x, tile.y + H / 2 - 8, 17, tile.type === 'hatch' ? '#ffd34d' : '#fff6df');
 }
 
 function drawCrate(ctx, tile, x, y, glow) {
