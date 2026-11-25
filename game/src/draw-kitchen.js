@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Kitchen renderer: tiled floor, counters, crates, boards, stoves, hatch, the chef and progress bars.
 import { TILE, KITCHEN_Y, COLS, ROWS } from './kitchen-layout.js';
-import { drawIngredient, drawPlate } from './draw-food.js';
-import { nextStep, isReady, lastStep } from './items.js';
+import { drawIngredient, drawPlate, readyStage } from './draw-food.js';
+import { nextStep, isReady, lastStep, missingLayers } from './items.js';
 import { burnShare, WARN_AT } from './stations.js';
 import { facingTile } from './chef.js';
 
@@ -134,14 +134,29 @@ function drawItemOn(ctx, tile, t) {
 
 // Progress bars, done ticks, burn warnings and the hatch's READY tag, drawn above steam and smoke.
 export function drawTileBars(ctx, game, t) {
-  for (const tile of game.kitchen.list) if (tile.item) drawBarsFor(ctx, tile, t);
+  const focused = game.tickets.find((tk) => tk.uid === game.focus);
+  for (const tile of game.kitchen.list) if (tile.item) drawBarsFor(ctx, tile, t, focused ? focused.dish : null);
 }
 
-function drawBarsFor(ctx, tile, t) {
+// A speech bubble over a plate showing what the focused ticket's dish still needs.
+function drawNeedBubble(ctx, tile, plate, dish) {
+  const left = missingLayers(plate, dish);
+  if (!left || left.length === 0 || plate.layers.length === 0) return;
+  const w = 30 + left.length * 32; const x = tile.x + 22; const y = tile.y - 64;
+  ctx.beginPath(); ctx.moveTo(x + 6, y + 34); ctx.lineTo(x - 6, y + 48); ctx.lineTo(x + 20, y + 34); ctx.closePath();
+  ctx.fillStyle = '#ffffff'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.stroke();
+  rr(ctx, x, y, w, 36, 12, '#ffffff', 3);
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(x + 7, y + 31, 12, 6);
+  ctx.fillStyle = '#2f8f88'; ctx.font = "bold 24px 'Trebuchet MS', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('+', x + 15, y + 18);
+  left.forEach((id, i) => drawIngredient(ctx, id, readyStage(id), x + 44 + i * 32, y + 18, 12));
+}
+
+function drawBarsFor(ctx, tile, t, focusDish) {
   const item = tile.item;
   const cx = tile.x;
   if (item.kind === 'plate') {
-    if (tile.type !== 'hatch') return;
+    if (tile.type !== 'hatch') { if (focusDish) drawNeedBubble(ctx, tile, item, focusDish); return; }
     rr(ctx, cx - 50, tile.y + 30, 100, 30, 15, '#3fbf4f', 3);
     ctx.fillStyle = '#ffffff'; ctx.font = "bold 20px 'Trebuchet MS', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText('READY!', cx, tile.y + 46);

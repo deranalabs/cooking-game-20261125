@@ -54,6 +54,14 @@ export function addToPlate(plate, item) {
   plate.pop = 1;
 }
 
+// The layers a plate still needs to become a dish, or null when the plate cannot become it.
+export function missingLayers(plate, dish) {
+  if (!fitsInside(plate.layers, dish.layers)) return null;
+  const left = [...dish.layers];
+  for (const id of plate.layers) left.splice(left.indexOf(id), 1);
+  return left;
+}
+
 export function plateMakes(plate, dish) {
   if (plate.layers.length !== dish.layers.length) return false;
   return fitsInside(plate.layers, dish.layers);

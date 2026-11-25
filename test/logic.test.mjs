@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DISHES, INGREDIENT_IDS, SHIFTS, dishById } from '../game/src/recipes.js';
-import { makeIngredient, makePlate, isReady, canAddToPlate } from '../game/src/items.js';
+import { makeIngredient, makePlate, isReady, canAddToPlate, missingLayers } from '../game/src/items.js';
 import { findTiles } from '../game/src/kitchen-layout.js';
 import { createGame, tickGame } from '../game/src/shifts.js';
 import { interact } from '../game/src/stations.js';
@@ -42,6 +42,13 @@ test('plate only takes ready layers that fit a dish on the menu', () => {
   plate.layers.push('tomato');
   assert.equal(canAddToPlate(plate, tomato, ['salad']), false, 'salad has one tomato');
   assert.equal(canAddToPlate(plate, makeIngredient('bun'), ['salad']), false);
+});
+
+test('a half-built plate knows what its focused dish still needs', () => {
+  const plate = makePlate();
+  plate.layers.push('bun', 'beef', 'lettuce');
+  assert.deepEqual(missingLayers(plate, dishById('burger')), ['tomato']);
+  assert.equal(missingLayers(plate, dishById('salad')), null);
 });
 
 test('a salad goes from crates to the hatch and scores', () => {
