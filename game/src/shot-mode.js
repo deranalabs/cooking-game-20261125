@@ -3,6 +3,9 @@
 import { createGame, starsFor } from './shifts.js';
 import { addTicket, focusTicket } from './orders.js';
 import { dishById } from './recipes.js';
+import { REGULARS } from './regulars.js';
+import { createLedger } from './ledger.js';
+import { defaultMenu } from './menu-planner.js';
 import { makeIngredient, makePlate, advanceStep } from './items.js';
 import { tileAt, TILE, KITCHEN_Y } from './kitchen-layout.js';
 import { createFx, tickFx, floatText } from './effects.js';
@@ -18,85 +21,101 @@ function plate(layers, extra = {}) {
 function put(game, col, row, item) {
   tileAt(game.kitchen, col, row).item = item;
 }
+function guest(id) {
+  return REGULARS.find((r) => r.id === id);
+}
+// [dish, patience share, guest id] for each ticket on the board.
 function tickets(game, list) {
   game.tickets.length = 0;
-  for (const [id, share] of list) {
-    const t = addTicket(game, dishById(id));
+  for (const [id, share, who] of list) {
+    const t = addTicket(game, dishById(id), guest(who));
     t.patience = t.max * share; t.slide = 0;
   }
   game.events.length = 0;
   return game.tickets;
 }
-function stats(game, o) {
-  Object.assign(game, o);
+function chefAt(game, col, row, face, hold) {
+  Object.assign(game.chef, { x: (col + 0.5) * TILE, y: KITCHEN_Y + (row + 0.5) * TILE, face, hold });
+}
+function career(o) {
+  return Object.assign(createLedger(), o);
 }
 
 const STAGES = {
-  // Cover: mid-service, chef carrying a chopped tomato to a burger half-built on the island,
-  // fish and beef on the pans, noodles and mushrooms in the pots, a lantern rice plate at the hatch.
+  // Cover: the Tin Conveyor Diner mid-service. Four named guests in four moods, a critic among them,
+  // a fisher roll half-built, food riding the belt, pots and pans working, a burger ready at the hatch.
   cover(seed) {
-    const game = createGame(1, seed);
-    const tk = tickets(game, [['burger', 0.72], ['lantern', 0.4], ['forest', 0.9]]);
+    const game = createGame(2, seed, { menu: ['fisher', 'forest', 'lantern', 'burger'] });
+    const tk = tickets(game, [['fisher', 0.78, 'pip'], ['forest', 0.48, 'vale'], ['lantern', 0.2, 'brom'], ['burger', 0.6, 'greta']]);
     focusTicket(game, tk[0].uid);
-    stats(game, { timeLeft: 84, score: 236, tips: 58, combo: 3, bestCombo: 3, served: 5 });
-    put(game, 8, 3, plate(['bun', 'beef', 'lettuce']));
-    put(game, 11, 3, plate(['noodles']));
-    put(game, 6, 3, ing('lettuce', 1));
-    put(game, 14, 0, plate(['rice', 'fish', 'onion'], { serving: 0.5, ticketUid: tk[1].uid }));
-    put(game, 0, 1, ing('onion', 0, { progress: 0.55 }));
-    put(game, 7, 4, ing('fish', 0, { progress: 0.3 }));
-    put(game, 4, 4, ing('beef', 0, { progress: 0.62 }));
-    put(game, 5, 4, ing('fish', 1, { progress: 0.35 }));
-    put(game, 10, 4, ing('noodles', 0, { progress: 0.8 }));
-    put(game, 11, 4, ing('mushroom', 1, { progress: 0.45 }));
-    put(game, 3, 7, ing('cheese', 0));
-    const chef = game.chef;
-    chef.x = 8.5 * TILE; chef.y = KITCHEN_Y + 2.5 * TILE - 2; chef.face = { x: 0, y: 1 };
-    chef.hold = ing('tomato', 1);
+    Object.assign(game, { timeLeft: 96, score: 248, tips: 61, combo: 3, bestCombo: 3, served: 5 });
+    put(game, 3, 3, plate(['bun', 'fish', 'lettuce']));
+    put(game, 2, 3, plate([]));
+    put(game, 7, 3, plate(['noodles']));
+    put(game, 10, 3, ing('lettuce', 1));
+    put(game, 13, 3, ing('cheese', 0));
+    put(game, 15, 0, plate(['bun', 'beef', 'lettuce', 'tomato'], { serving: 0.5, ticketUid: tk[3].uid }));
+    put(game, 0, 1, ing('tomato', 0, { progress: 0.6 }));
+    put(game, 3, 5, ing('fish', 1, { progress: 0.62 }));
+    put(game, 4, 5, ing('beef', 1, { overcook: 1.2 }));
+    put(game, 6, 5, ing('onion', 0, { progress: 0.45 }));
+    put(game, 8, 5, ing('noodles', 0, { progress: 0.7 }));
+    put(game, 9, 5, ing('mushroom', 1, { progress: 0.4 }));
+    put(game, 14, 5, ing('rice', 0, { progress: 0.3 }));
+    chefAt(game, 5, 4, { x: -1, y: 0 }, ing('tomato', 1));
+    game.chef.y += 10;
     return { game, screen: 'play', t: 1.1, prewarm: 2 };
   },
-  // Late shift: full board in the rush, one ticket about to walk out, banner up.
+  // Rush in the Gilded Banquet Hall: a feast call, a furious critic, plates crowding the long hatch.
   rush(seed) {
-    const game = createGame(2, seed);
+    const game = createGame(5, seed, { menu: ['platter', 'ramen', 'smoke', 'risotto'] });
     game.rush = true;
-    tickets(game, [['ember', 0.12], ['harbor', 0.5], ['garden', 0.78], ['melt', 0.95]]);
-    stats(game, { timeLeft: 27, score: 388, tips: 131, combo: 5, bestCombo: 6, served: 11 });
-    put(game, 6, 3, plate(['bun', 'beef', 'cheese']));
-    put(game, 9, 3, plate(['noodles', 'tomato']));
-    put(game, 4, 4, ing('fish', 2, { overcook: 1.2 }));
-    put(game, 5, 4, ing('beef', 0, { progress: 0.7 }));
-    put(game, 10, 4, ing('rice', 1, { overcook: 2.0 }));
-    put(game, 11, 4, ing('mushroom', 1, { progress: 0.5 }));
-    put(game, 0, 1, ing('lettuce', 0, { progress: 0.4 }));
-    Object.assign(game.chef, { x: 12.5 * TILE, y: KITCHEN_Y + 4.5 * TILE, face: { x: -1, y: 0 } });
-    game.chef.hold = plate(['rice', 'fish']);
-    return { game, screen: 'play', t: 0.6, prewarm: 1.5, banner: 2.2 };
+    tickets(game, [['ramen', 0.14, 'quill'], ['platter', 0.42, 'luz'], ['smoke', 0.7, 'osei'], ['risotto', 0.92, 'marlow']]);
+    Object.assign(game, { timeLeft: 24, score: 412, tips: 138, combo: 5, bestCombo: 6, served: 12 });
+    put(game, 4, 2, plate(['rice', 'beef', 'mushroom']));
+    put(game, 10, 2, plate(['bun', 'beef', 'onion']));
+    put(game, 12, 2, plate(['rice']));
+    put(game, 6, 0, plate(['noodles', 'beef', 'onion', 'mushroom'], { serving: 0.4, ticketUid: game.tickets[0].uid }));
+    put(game, 2, 4, ing('beef', 1, { overcook: 4.2 }));
+    put(game, 3, 4, ing('onion', 1, { progress: 0.5 }));
+    put(game, 5, 4, ing('mushroom', 1, { progress: 0.7 }));
+    put(game, 6, 4, ing('rice', 1, { overcook: 0.8 }));
+    put(game, 8, 4, ing('tomato', 0, { progress: 0.35 }));
+    put(game, 13, 4, ing('beef', 0, { progress: 0.55 }));
+    chefAt(game, 11, 3, { x: -1, y: 0 }, plate(['rice', 'mushroom']));
+    return { game, screen: 'play', t: 0.6, prewarm: 1.5, banner: 2.2,
+      floats: [[640, 395, 'feast call: two tables at once!', '#ffd34d']] };
   },
-  // The stove: beef close to burning, fish searing, a burnt pot smoking, chef on the way.
-  stove(seed) {
-    const game = createGame(1, seed);
-    tickets(game, [['lantern', 0.55], ['burger', 0.66], ['salad', 0.3]]);
-    stats(game, { timeLeft: 111, score: 142, tips: 37, combo: 2, bestCombo: 2, served: 3 });
-    put(game, 4, 4, ing('beef', 1, { overcook: 5.6 }));
-    put(game, 5, 4, ing('fish', 1, { progress: 0.55 }));
-    put(game, 10, 4, ing('rice', 0, { progress: 0.85 }));
-    put(game, 11, 4, ing('mushroom', 2, { burnt: true }));
-    put(game, 9, 3, plate(['lettuce', 'tomato']));
-    put(game, 7, 3, plate(['bun']));
-    put(game, 0, 2, ing('onion', 1));
-    Object.assign(game.chef, { x: 3.5 * TILE, y: KITCHEN_Y + 4.5 * TILE, face: { x: 1, y: 0 } });
-    game.chef.hold = ing('onion', 1);
-    return { game, screen: 'play', t: 0.25, prewarm: 2.5, floats: [[288, 372, 'Burning!', '#ff6a4a']] };
+  // The upgrade shop between kitchens, a knife already bought, tips in the wallet.
+  shop(seed) {
+    const game = createGame(3, seed);
+    game.tickets.length = 0;
+    const ledger = career({ wallet: 128, owned: ['knife'], stars: [3, 2, 3], unlocked: 3, served: 31, shifts: 3 });
+    return { game, screen: 'shop', t: 0.8, prewarm: 0, ledger, nextKitchen: 3 };
   },
-  // Shift result card with stars over the closed kitchen.
-  result(seed) {
-    const game = createGame(1, seed);
+  // The stars ledger after a three-star rooftop shift, critic's verdict and career column.
+  ledger(seed) {
+    const game = createGame(3, seed, { menu: ['risotto', 'ember', 'harbor', 'forest'] });
     game.tickets.length = 0; game.events.length = 0;
-    stats(game, { timeLeft: 0, score: 297, tips: 104, combo: 4, bestCombo: 6, served: 9, missed: 1, phase: 'result' });
+    Object.assign(game, { timeLeft: 0, score: 402, tips: 117, combo: 4, bestCombo: 7, served: 11, missed: 1, burnt: 1,
+      phase: 'result', critics: [{ name: 'Critic Ines Vale', dish: 'Roof Risotto', quality: 0.93 }] });
     game.stars = starsFor(game);
-    put(game, 8, 3, plate(['rice', 'fish', 'onion']));
-    put(game, 4, 4, ing('beef', 1));
-    return { game, screen: 'result', t: 1.6, prewarm: 0.5 };
+    put(game, 4, 2, plate(['rice', 'mushroom', 'cheese']));
+    const ledger = career({ wallet: 214, owned: ['knife', 'jar'], stars: [3, 3, 2, 3], unlocked: 4, served: 46, shifts: 4 });
+    return { game, screen: 'ledger', t: 1.6, prewarm: 0.5, ledger };
+  },
+  // The menu planner before the Ember Hot Line.
+  plan(seed) {
+    const game = createGame(4, seed);
+    game.tickets.length = 0;
+    return { game, screen: 'plan', t: 0.4, prewarm: 0, planKitchen: 4, plan: defaultMenu(4),
+      ledger: career({ wallet: 96, stars: [3, 3, 2, 3], unlocked: 4 }) };
+  },
+  // The title with a career under way.
+  title(seed) {
+    const game = createGame(0, seed);
+    return { game, screen: 'title', t: 0.4, prewarm: 0, chosen: 2,
+      ledger: career({ wallet: 74, stars: [3, 2, 1], unlocked: 3 }) };
   },
 };
 
@@ -108,5 +127,7 @@ export function stageShot(name, seed) {
   for (let k = 0; k < s.prewarm * 60; k++) tickFx(fx, 1 / 60, s.game);
   if (s.banner) fx.banner = s.banner;
   for (const [x, y, str, color] of s.floats || []) floatText(fx, x, y, str, color, 26);
-  return { game: s.game, fx, screen: s.screen, t: s.t };
+  const out = { game: s.game, fx, screen: s.screen, t: s.t };
+  for (const key of ['ledger', 'nextKitchen', 'planKitchen', 'plan', 'chosen']) if (s[key] !== undefined) out[key] = s[key];
+  return out;
 }

@@ -3,7 +3,7 @@
 
 export const UPGRADES = [
   { id: 'knife', name: 'Whetted Knife', price: 45, says: 'chop 40% faster', icon: 'knife' },
-  { id: 'pot', name: 'Copper Stockpot', price: 60, says: 'pots and pans cook 25% faster', icon: 'pot' },
+  { id: 'pot', name: 'Copper Stockpot', price: 60, says: 'stove cooks 25% faster', icon: 'pot' },
   { id: 'warmer', name: 'Plate Warmer', price: 55, says: 'tickets wait 15% longer', icon: 'warmer' },
   { id: 'jar', name: 'Tip Jar', price: 40, says: '+$3 tip on every dish', icon: 'jar' },
   { id: 'clogs', name: 'Cork Clogs', price: 50, says: 'walk 15% faster', icon: 'clogs' },

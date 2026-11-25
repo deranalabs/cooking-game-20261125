@@ -228,7 +228,7 @@ export function drawIngredient(ctx, id, stage, x, y, s, burnt = false, squash = 
 
 // Flat layer bands for stacked dishes (bun stacks), bottom up.
 const BAND = { beef: ['#7d3f1c', 0.2], cheese: ['#f7c62f', 0.12], lettuce: ['#5bb83a', 0.14],
-  tomato: ['#e0392b', 0.13], onion: ['#c9852f', 0.11], mushroom: ['#5f3519', 0.13] };
+  tomato: ['#e0392b', 0.13], onion: ['#c9852f', 0.11], mushroom: ['#5f3519', 0.13], fish: ['#e8955f', 0.17] };
 
 function drawBand(ctx, id, x, y, w, s) {
   const [fill, h] = BAND[id];

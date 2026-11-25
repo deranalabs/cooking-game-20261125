@@ -26,7 +26,9 @@ export function floatText(fx, x, y, str, color, size = 26) {
   fx.floats.push({ x, y, str, color, size, life: 1.4, max: 1.4 });
 }
 
+// Where the last plate went out: flashes and pay text rise from that hatch tile.
 const HATCH = { x: 15 * TILE, y: KITCHEN_Y + TILE / 2 };
+const HAZARD_COLOR = { swell: '#8fd0ff', shutter: '#d0d8e0', gust: '#c8ecff', flare: '#ff8a3a', feast: '#ffd34d', belt: '#ffd34d' };
 
 export function handleEvents(fx, game, audio) {
   for (const e of game.events) {
@@ -42,13 +44,23 @@ export function handleEvents(fx, game, audio) {
       case 'warn': audio.play('warn'); floatText(fx, e.x - 40, e.y - 50, 'Burning!', '#ff6a4a', 24); break;
       case 'burnt': audio.play('burnt'); for (let i = 0; i < 8; i++) puff(fx, e.x, e.y, '#3a3230', 14, 1.4); break;
       case 'ready': audio.play('ready'); fx.hatchFlash = 0.6; break;
-      case 'serve':
+      case 'serve': {
         audio.play('bell'); fx.hatchFlash = 1;
+        if (e.x !== null && e.x !== undefined) { HATCH.x = Math.min(e.x, 15.4 * TILE); HATCH.y = e.y; }
         floatText(fx, HATCH.x, HATCH.y + 50, `+${e.gain}`, '#ffd34d', 40);
         if (e.tip > 0) floatText(fx, HATCH.x, HATCH.y + 92, `tip $${e.tip}${e.mult > 1 ? ' x' + e.mult.toFixed(2) : ''}`, '#9fe08a', 22);
+        if (e.guest) floatText(fx, 470, 150, `${e.guest.name}: “${e.guest.lines.delighted}”`, e.critic ? '#ffd34d' : '#ffb0e8', 22);
+        if (e.critic) floatText(fx, HATCH.x - 120, HATCH.y + 130, `critic rates it ${Math.round(e.quality * 100)}%`, '#ffd34d', 22);
+        break;
+      }
+      case 'hazard':
+        audio.play('warn');
+        floatText(fx, Math.max(170, Math.min(e.x, 980)), e.y - 50, e.text, HAZARD_COLOR[e.kind] || '#ffffff', 26);
+        if (e.kind === 'gust') for (let i = 0; i < 10; i++) puff(fx, e.x, e.y, 'rgba(220,240,255,0.7)', 6, 0.8);
+        if (e.kind === 'flare') burst(fx, e.x, e.y - 10, 16, '#ff8a2a', 220, 0.6, 5, -100);
         break;
       case 'served': burst(fx, e.x, e.y, 18, '#ffd34d', 260, 0.7, 5); break;
-      case 'expire': audio.play('expire'); fx.boardFlash = 1; floatText(fx, 470, 140, `${e.dish.name} walked out!  -10`, '#ff6a4a', 30); break;
+      case 'expire': audio.play('expire'); fx.boardFlash = 1; floatText(fx, 470, 140, `${e.guest ? e.guest.name : e.dish.name} walked out!  -10`, '#ff6a4a', 30); break;
       case 'rush': audio.play('rush'); fx.banner = 3; break;
       case 'ticket': audio.play('ticket'); break;
       case 'end': audio.play(e.stars > 0 ? 'win' : 'lose'); break;

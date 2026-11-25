@@ -1,15 +1,23 @@
 // SPDX-License-Identifier: MIT
-// Boot and game loop: screens (title, shift, result), input routing, update and draw order.
+// Boot and game loop: screens (title, menu plan, shift, stars ledger, shop), input routing, update and draw order.
+import { KITCHENS } from './kitchens/roster.js';
+import { REGULARS } from './regulars.js';
+import { buyUpgrade, modsFor, UPGRADES } from './shop.js';
+import { defaultMenu, toggleDish, unlockedDishes, planIsReady } from './menu-planner.js';
+import { recordShift, loadLedger, saveLedger } from './ledger.js';
 import { createGame, tickGame } from './shifts.js';
-import { SHIFTS } from './recipes.js';
 import { interact, canChopHere, serveNow } from './stations.js';
 import { focusTicket } from './orders.js';
 import { tileAtPoint, screenToKitchen, VIEW, KITCHEN_Y } from './kitchen-layout.js';
 import { createInput, inside } from './input.js';
 import { createAudio } from './audio.js';
 import { createFx, handleEvents, tickFx, drawFx } from './effects.js';
-import { drawKitchen, drawTileBars } from './draw-kitchen.js';
-import { drawBoard, drawRushBanner, drawHintBar, drawResult, drawTitle, ticketRect, resultButtons, startButton, W, HGT } from './draw-hud.js';
+import { drawKitchen, drawTileBars, drawVignette } from './draw-kitchen.js';
+import { drawBoard, drawRushBanner, drawHintBar, ticketRect, W, HGT } from './draw-hud.js';
+import { drawTitle, kitchenCardRect, startButton } from './draw-title.js';
+import { drawMenuPlanner, planCardRect, planStartButton } from './draw-menu-planner.js';
+import { drawShop, shopCardRect, shopDoneButton } from './draw-shop.js';
+import { drawLedger, ledgerButtons } from './draw-ledger.js';
 import { stageShot } from './shot-mode.js';
 
 const canvas = document.getElementById('kitchen');
@@ -26,16 +34,12 @@ const params = new URLSearchParams(location.search);
 const seed = Number(params.get('seed')) || 1;
 const audio = createAudio();
 const input = createInput(canvas, () => audio.unlock());
-
-function loadProgress() {
-  try { return JSON.parse(localStorage.getItem('copper-lantern-progress')) || { unlocked: 0, stars: [] }; } catch { return { unlocked: 0, stars: [] }; }
-}
-function saveProgress(p) {
-  try { localStorage.setItem('copper-lantern-progress', JSON.stringify(p)); } catch { /* private window */ }
-}
+const storage = (() => { try { return window.localStorage; } catch { return null; } })();
 
 const app = { screen: 'title', chosen: 0, runs: 0, paused: false, still: false, t: 0,
-  progress: loadProgress(), game: createGame(0, seed), fx: createFx(seed) };
+  ledger: storage ? loadLedger(storage) : loadLedger({ getItem: () => null }),
+  plan: defaultMenu(0), planKitchen: 0, nextKitchen: 0,
+  game: createGame(0, seed), fx: createFx(seed) };
 app.game.frozen = true;
 
 if (params.get('shot')) {
@@ -43,40 +47,59 @@ if (params.get('shot')) {
   app.still = true;
 }
 
-function startShift(i) {
+function save() { if (storage) saveLedger(storage, app.ledger); }
+
+function openPlanner(i) {
+  app.planKitchen = i;
+  app.plan = defaultMenu(i);
+  app.screen = 'plan';
+}
+
+function startShift() {
   app.runs += 1;
-  app.chosen = i;
-  app.game = createGame(i, seed + app.runs * 101);
+  app.game = createGame(app.planKitchen, seed + app.runs * 101, { menu: app.plan, mods: modsFor(app.ledger.owned) });
   app.fx = createFx(seed + app.runs);
   app.screen = 'play'; app.paused = false;
 }
 
 function finishShift() {
-  const g = app.game;
-  app.progress.stars[g.shiftIndex] = Math.max(app.progress.stars[g.shiftIndex] || 0, g.stars);
-  if (g.stars >= 1) app.progress.unlocked = Math.max(app.progress.unlocked, Math.min(g.shiftIndex + 1, SHIFTS.length - 1));
-  saveProgress(app.progress);
-  app.screen = 'result';
+  recordShift(app.ledger, app.game);
+  save();
+  app.screen = 'ledger';
 }
 
-function resultAction(id) {
-  const i = app.game.shiftIndex;
-  if (id === 'next') startShift(i + 1);
-  else if (id === 'again') startShift(0);
-  else startShift(i);
+function ledgerAction(id) {
+  const i = app.game.kitchenIndex;
+  if (id === 'retry') { openPlanner(i); return; }
+  app.nextKitchen = id === 'next' ? i + 1 : i;
+  app.screen = 'shop';
 }
 
 function updateTitle(presses, clicks) {
+  const top = app.ledger.unlocked;
   for (const code of presses) {
     if (code === 'ArrowLeft' || code === 'KeyA') app.chosen = Math.max(0, app.chosen - 1);
-    if (code === 'ArrowRight' || code === 'KeyD') app.chosen = Math.min(app.progress.unlocked, app.chosen + 1);
-    if (code === 'Enter' || code === 'Space') startShift(app.chosen);
+    if (code === 'ArrowRight' || code === 'KeyD') app.chosen = Math.min(top, app.chosen + 1);
+    if (code === 'Enter' || code === 'Space') openPlanner(app.chosen);
   }
   for (const c of clicks) {
-    SHIFTS.forEach((_, i) => {
-      if (i <= app.progress.unlocked && inside(c, { x: 250 + i * 270, y: 350, w: 240, h: 170 })) app.chosen = i;
-    });
-    if (inside(c, startButton())) startShift(app.chosen);
+    KITCHENS.forEach((_, i) => { if (i <= top && inside(c, kitchenCardRect(i))) app.chosen = i; });
+    if (inside(c, startButton())) openPlanner(app.chosen);
+  }
+}
+
+function updatePlan(presses, clicks) {
+  const dishes = unlockedDishes(app.planKitchen);
+  const toggle = (id) => { app.plan = toggleDish(app.plan, id, app.planKitchen); audio.play('pick'); };
+  for (const code of presses) {
+    const n = code.startsWith('Digit') ? Number(code.slice(5)) : 0;
+    if (n >= 1 && n <= dishes.length) toggle(dishes[n - 1]);
+    if (code === 'Enter' && planIsReady(app.plan)) startShift();
+    if (code === 'Escape') app.screen = 'title';
+  }
+  for (const c of clicks) {
+    dishes.forEach((id, i) => { if (inside(c, planCardRect(i))) toggle(id); });
+    if (inside(c, planStartButton()) && planIsReady(app.plan)) startShift();
   }
 }
 
@@ -100,14 +123,27 @@ function updatePlay(dt, presses, clicks) {
   if (g.phase === 'result') finishShift();
 }
 
-function updateResult(dt, presses, clicks) {
+function updateLedger(dt, presses, clicks) {
   for (const code of presses) {
-    if (code === 'Enter') resultAction(resultButtons(app.game)[0].id);
-    if (code === 'KeyR') startShift(app.game.shiftIndex);
+    if (code === 'Enter') ledgerAction(ledgerButtons(app.game)[0].id);
+    if (code === 'KeyR') ledgerAction('retry');
     if (code === 'Escape') app.screen = 'title';
   }
-  for (const c of clicks) for (const b of resultButtons(app.game)) if (inside(c, b)) resultAction(b.id);
+  for (const c of clicks) for (const b of ledgerButtons(app.game)) if (inside(c, b)) ledgerAction(b.id);
   tickFx(app.fx, dt, app.game);
+}
+
+function updateShop(presses, clicks) {
+  const buy = (u) => { audio.play(buyUpgrade(app.ledger, u.id) ? 'bell' : 'nope'); save(); };
+  for (const code of presses) {
+    const n = code.startsWith('Digit') ? Number(code.slice(5)) : 0;
+    if (n >= 1 && n <= UPGRADES.length) buy(UPGRADES[n - 1]);
+    if (code === 'Enter') openPlanner(app.nextKitchen);
+  }
+  for (const c of clicks) {
+    UPGRADES.forEach((u, i) => { if (inside(c, shopCardRect(i))) buy(u); });
+    if (inside(c, shopDoneButton())) openPlanner(app.nextKitchen);
+  }
 }
 
 function neededIngredients(g) {
@@ -118,24 +154,30 @@ function neededIngredients(g) {
 function draw() {
   const g = app.game;
   const t = app.t;
-  ctx.fillStyle = '#3b2216'; ctx.fillRect(0, 0, W, HGT);
+  ctx.fillStyle = g.def.palette.wall; ctx.fillRect(0, 0, W, HGT);
   drawBoard(ctx, g, app.fx, t);
   ctx.save();
   ctx.translate(VIEW.x, VIEW.y); ctx.scale(VIEW.scale, VIEW.scale); ctx.translate(0, -KITCHEN_Y);
   drawKitchen(ctx, g, t, neededIngredients(g));
   drawFx(ctx, app.fx);
+  drawVignette(ctx, g);
   drawTileBars(ctx, g, t);
   ctx.restore();
   drawRushBanner(ctx, app.fx, g, t);
   drawHintBar(ctx, g);
-  if (app.screen === 'title') drawTitle(ctx, app.progress, app.chosen, t);
-  if (app.screen === 'result') drawResult(ctx, g, t);
+  if (app.screen === 'title') drawTitle(ctx, app.ledger, app.chosen, t, W, HGT);
+  if (app.screen === 'plan') drawMenuPlanner(ctx, app.planKitchen, app.plan, t, W, HGT);
+  if (app.screen === 'ledger') drawLedger(ctx, g, app.ledger, t, W, HGT);
+  if (app.screen === 'shop') drawShop(ctx, app.ledger, app.nextKitchen, t, W, HGT);
   if (app.paused) {
     ctx.fillStyle = 'rgba(20,10,5,0.6)'; ctx.fillRect(0, 0, W, HGT);
     ctx.fillStyle = '#ffd34d'; ctx.font = "bold 72px 'Trebuchet MS', sans-serif"; ctx.textAlign = 'center';
     ctx.fillText('PAUSED', W / 2, HGT / 2);
   }
 }
+
+// For the play-test harness: read-only view of the current screen and shift.
+window.__kitchen = { app, regulars: REGULARS.length };
 
 let last = performance.now();
 function frame(now) {
@@ -145,8 +187,10 @@ function frame(now) {
     app.t += dt;
     const presses = input.takePresses(); const clicks = input.takeClicks();
     if (app.screen === 'title') updateTitle(presses, clicks);
+    else if (app.screen === 'plan') updatePlan(presses, clicks);
     else if (app.screen === 'play') updatePlay(dt, presses, clicks);
-    else updateResult(dt, presses, clicks);
+    else if (app.screen === 'shop') updateShop(presses, clicks);
+    else updateLedger(dt, presses, clicks);
   }
   draw();
   requestAnimationFrame(frame);
