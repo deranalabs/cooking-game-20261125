@@ -21,6 +21,7 @@ import { drawMenuPlanner, planCardRect, planStartButton } from './draw-menu-plan
 import { drawShop, shopCardRect, shopDoneButton } from './draw-shop.js';
 import { drawLedger, ledgerButtons } from './draw-ledger.js';
 import { stageShot } from './shot-mode.js';
+import { guideWanted, drawGuide } from './first-shift-guide.js';
 
 const canvas = document.getElementById('kitchen');
 const ctx = canvas.getContext('2d');
@@ -175,6 +176,7 @@ function draw() {
   if (app.screen === 'play' && !app.still) drawShiftIntro(ctx, g);
   drawRushBanner(ctx, fx, g, t);
   drawHintBar(ctx, g);
+  if (app.screen === 'play' && !app.still && guideWanted(g, app.ledger)) drawGuide(ctx, g, KITCHEN_Y + 8 * 72, W);
   if (app.screen === 'title') drawTitle(ctx, app.ledger, app.chosen, t, W, HGT);
   if (app.screen === 'plan') drawMenuPlanner(ctx, app.planKitchen, app.plan, t, W, HGT);
   if (app.screen === 'ledger') drawLedger(ctx, g, app.ledger, t, W, HGT);

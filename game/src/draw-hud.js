@@ -52,6 +52,13 @@ function drawTraitTag(ctx, ticket, game, x, y) {
   text(ctx, tagInfo.text, x + w / 2, y + 8, 10, INK, 'center');
 }
 
+// The largest bold size from max down to min at which a string fits the width.
+function fitSize(ctx, str, width, max, min) {
+  let size = max;
+  for (; size > min; size--) { ctx.font = `bold ${size}px ${FONT}`; if (ctx.measureText(str).width <= width) break; }
+  return size;
+}
+
 export function ticketRect(i) {
   return { x: TICKET.x + i * (TICKET.w + TICKET.gap), y: TICKET.y, w: TICKET.w, h: TICKET.h };
 }
@@ -75,7 +82,7 @@ function drawTicket(ctx, ticket, i, game, t) {
   rr(ctx, x + r.w - 70, y + 6, 64, 20, 10, MOOD_COLOR[mood], 2);
   text(ctx, mood.toUpperCase(), x + r.w - 38, y + 16.5, 11, INK, 'center');
   // dish name, price (critics pay more) and picture
-  text(ctx, ticket.dish.name, x + 10, y + 45, ticket.dish.name.length > 18 ? 12 : 15, INK);
+  text(ctx, ticket.dish.name, x + 9, y + 46, fitSize(ctx, ticket.dish.name, r.w - 72, 19, 12), INK);
   rr(ctx, x + r.w - 56, y + 36, 50, 19, 9, g.critic ? '#ff9a2a' : '#ffd34d', 2);
   text(ctx, (g.critic ? '★$' : '$') + Math.round(dishPrice(ticket.dish) * (g.critic ? 1.6 : 1)), x + r.w - 31, y + 46, 13, INK, 'center');
   drawPlate(ctx, ticket.dish.layers, x + 40, y + 84, 25, { complete: true });
@@ -131,22 +138,24 @@ function drawPanel(ctx, game, fx, t) {
   ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.stroke();
   ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, 40, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * share);
   ctx.closePath(); ctx.fillStyle = game.rush ? '#ff5a3a' : '#5cc05a'; ctx.fill();
-  ctx.beginPath(); ctx.arc(cx, cy, 27, 0, Math.PI * 2); ctx.fillStyle = '#fff6df'; ctx.fill();
+  ctx.beginPath(); ctx.arc(cx, cy, 31, 0, Math.PI * 2); ctx.fillStyle = '#fff6df'; ctx.fill();
   const secs = Math.ceil(game.timeLeft);
   const label = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
   const pulse = game.rush ? 1 + Math.max(0, Math.sin(t * 6.3)) * 0.12 : 1;
   ctx.save(); ctx.translate(cx, cy); ctx.scale(pulse, pulse);
-  text(ctx, label, 0, 1, 22, game.rush ? '#c4201a' : INK, 'center');
+  text(ctx, label, 0, 2, 28, game.rush ? '#c4201a' : INK, 'center');
   ctx.restore();
-  // score, tips, combo
-  const sx = x0 + 122;
-  text(ctx, 'SCORE', sx, 70, 13, '#d9c08e');
-  text(ctx, String(game.score), sx + 58, 96, 36, '#ffd34d');
-  text(ctx, `TIPS $${game.tips}`, sx, 124, 17, '#9fe08a');
+  // score big and gold, tips beside its label, the combo as a fat bar
+  const sx = x0 + 122; const right = x0 + w - 12;
+  text(ctx, 'SCORE', sx, 72, 14, '#d9c08e');
+  text(ctx, `TIPS $${game.tips}`, right, 72, 17, '#9fe08a', 'right');
+  outlined(ctx, String(game.score), sx, 103, 48, '#ffd34d', 'left', 6);
   const mult = 1 + Math.min(Math.max(game.combo - 1, 0), game.mods && game.mods.comboCap ? game.mods.comboCap : 4) * 0.25;
-  rr(ctx, sx, 138, 162, 22, 11, '#4a2a1a', 2, '#c9963f');
-  rr(ctx, sx + 2, 140, Math.max(10, 158 * Math.min(game.combo, 5) / 5), 18, 9, game.combo >= 3 ? '#ff7a2a' : '#e0b040', 0);
-  text(ctx, `COMBO x${game.combo} · pay x${mult.toFixed(2)}`, sx + 81, 150, 13, '#fff8e8', 'center');
+  const bw = right - sx;
+  rr(ctx, sx, 129, bw, 30, 15, '#4a2a1a', 2.5, '#c9963f');
+  rr(ctx, sx + 3, 132, Math.max(12, (bw - 6) * Math.min(game.combo, 5) / 5), 24, 12, game.combo >= 3 ? '#ff7a2a' : '#e0b040', 0);
+  outlined(ctx, `COMBO x${game.combo}`, sx + 10, 144.5, 18, '#fff8e8', 'left', 4);
+  outlined(ctx, `$x${mult.toFixed(2)}`, right - 8, 145, 14, '#ffe9a8', 'right', 3);
 }
 
 export function drawRushBanner(ctx, fx, game, t) {
@@ -186,18 +195,33 @@ export function drawReactions(ctx, fx, t) {
 }
 
 // The chapter card for the first seconds of a shift: chapter number and title, the kitchen, its story beat.
+export const INTRO_SECONDS = 2.4;
+const STRIPS = new WeakMap();
+
+// Where the card fits on bare floor across its width, away from the chef: two open rows give a 90px card
+// on the line between them, one open row a 68px card inside it. Returns the screen centre and height.
+export function floorStrip(game) {
+  const { grid } = game.kitchen;
+  const chefRow = Math.floor((game.chef.y - KITCHEN_Y) / 64);
+  const open = (r) => r !== chefRow && grid[r].slice(2, 15).every((tile) => tile.type === 'floor');
+  for (let r = 1; r < grid.length - 2; r++) if (open(r) && open(r + 1)) return { y: KITCHEN_Y + (r + 1) * 72, h: 90 };
+  for (let r = grid.length - 2; r >= 1; r--) if (open(r)) return { y: KITCHEN_Y + r * 72 + 36, h: 68 };
+  return { y: KITCHEN_Y + 36, h: 68 };
+}
+
 export function drawShiftIntro(ctx, game) {
-  const left = 3.6 - game.clock;
+  const left = INTRO_SECONDS - game.clock;
   if (game.phase !== 'play' || left <= 0) return;
   const ch = chapterOf(game.kitchenIndex);
-  const a = Math.min(1, left * 1.5);
-  const slide = Math.max(0, 0.35 - game.clock) * 300;
-  ctx.save(); ctx.globalAlpha = a; ctx.translate(W / 2, KITCHEN_Y + 250 - slide);
-  rr(ctx, -430, -70, 860, 140, 18, 'rgba(36,22,15,0.92)', 4, '#c9963f');
-  text(ctx, `CHAPTER ${ch.number}`, 0, -42, 16, '#c9963f', 'center');
-  outlined(ctx, ch.title.toUpperCase(), 0, -10, 34, '#ffd34d', 'center', 7);
-  text(ctx, ch.kitchen.story, 0, 26, 16, '#fff2d0', 'center', 'italic bold');
-  text(ctx, `⚠ ${ch.kitchen.hazard.label}: ${ch.kitchen.blurb}`, 0, 50, 14, '#ff9a7a', 'center');
+  const a = Math.min(1, left * 2.5);
+  const slide = Math.max(0, 0.25 - game.clock) * 160;
+  if (!STRIPS.has(game)) STRIPS.set(game, floorStrip(game));   // fixed where the shift opened
+  const strip = STRIPS.get(game); const k = strip.h / 90;
+  ctx.save(); ctx.globalAlpha = a; ctx.translate(W / 2, strip.y - slide);
+  rr(ctx, -430, -strip.h / 2, 860, strip.h, 16, 'rgba(36,22,15,0.92)', 4, '#c9963f');
+  outlined(ctx, `CHAPTER ${ch.number} · ${ch.title.toUpperCase()}`, 0, -19 * k, Math.round(28 * k), '#ffd34d', 'center', 6);
+  text(ctx, ch.kitchen.story, 0, 9 * k, k < 1 ? 14 : 15, '#fff2d0', 'center', 'italic bold');
+  text(ctx, `⚠ ${ch.kitchen.hazard.label}: ${ch.kitchen.blurb}`, 0, 31 * k + (k < 1 ? 2 : 0), 13, '#ff9a7a', 'center');
   ctx.restore();
 }
 
