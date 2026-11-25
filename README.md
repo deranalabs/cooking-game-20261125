@@ -4,7 +4,9 @@
 
 # Copper Lantern Kitchen
 
-A top-down kitchen rush in plain canvas: chop, sear, simmer and plate eight dishes from ten ingredients while tickets drain on the order board.
-Three shifts, each with a bigger menu, more tickets and less patience, end in a service rush and a star-rated result card; play it with `node serve.ts`.
+A top-down kitchen rush in plain canvas: chop, sear, simmer and plate thirteen dishes from ten ingredients while named regulars and critics wait at the order board.
+A career runs through six kitchens, each with its own layout and hazard: the Galley Boat (swells), Dunmore Market Stall (a shutter over the hatch), Tin Conveyor Diner (a belt), Saffron Rooftop (gusts blow out burners), Ember Hot Line (flare-ups) and Gilded Banquet Hall (feast calls).
+Before each shift you plan a menu of four unlocked dishes; after it, the stars ledger shows stars, dishes, tips, burnt plates, best combo and the critic's word, and the tips buy upgrades in the shop (knife, stockpot, plate warmer, tip jar, clogs, egg timer).
+Play it with `node serve.ts`; run the logic tests with `node --test test/*.mjs`.
 
 MIT, see LICENSE

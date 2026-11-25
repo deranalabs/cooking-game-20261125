@@ -1,6 +1,7 @@
 // Hand-in for "Copper Lantern Kitchen", a make.fun best-cooking-game entry (Node 22, standard library only).
 // The game is game/: a top-down kitchen rush in plain canvas ES modules, no library, no network. You chop,
-// cook and plate eight dishes from ten ingredients over three shifts against an order board of tickets.
+// cook and plate thirteen dishes across six kitchens with their own hazards, for named regulars and critics,
+// planning each menu, spending tips in a shop and keeping a stars ledger between shifts.
 // This program copies game/ and screenshots/ to /output (or MAKEFUN_OUTPUT_DIR) and writes dossier.json
 // with the kit's unchanged buildDossier.
 //

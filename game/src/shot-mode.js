@@ -90,7 +90,7 @@ const STAGES = {
   shop(seed) {
     const game = createGame(3, seed);
     game.tickets.length = 0;
-    const ledger = career({ wallet: 128, owned: ['knife'], stars: [3, 2, 3], unlocked: 3, served: 31, shifts: 3 });
+    const ledger = career({ wallet: 58, owned: ['knife'], stars: [3, 2, 3], unlocked: 3, served: 31, shifts: 3 });
     return { game, screen: 'shop', t: 0.8, prewarm: 0, ledger, nextKitchen: 3 };
   },
   // The stars ledger after a three-star rooftop shift, critic's verdict and career column.
