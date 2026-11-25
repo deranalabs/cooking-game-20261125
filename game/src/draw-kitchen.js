@@ -5,7 +5,7 @@ import { drawIngredient, drawPlate, readyStage } from './draw-food.js';
 import { nextStep, isReady, lastStep, missingLayers } from './items.js';
 import { burnShare, WARN_AT } from './stations.js';
 import { facingTile } from './chef.js';
-import { RUSH_SECONDS } from './recipes.js';
+import { RUSH_SECONDS, INGREDIENTS } from './recipes.js';
 
 const INK = '#2b1a12';
 const H = TILE;
@@ -139,12 +139,33 @@ function drawHatchTools(ctx, tile, t) {
   }
 }
 
+// Station names: a new cook reads what each tile does without learning the shapes first.
+const STATION_LABEL = { chop: 'CHOP', pan: 'PAN', pot: 'POT', fry: 'FRY', bake: 'OVEN', grill: 'GRILL',
+  plating: 'PLATE UP', hatch: 'HATCH', trash: 'BIN', rack: 'PLATES' };
+
+// Bold cream letters with a dark outline, shrunk only as far as needed to fit the tile.
+function tileText(ctx, str, x, y, size, color = '#fff6df') {
+  let s = size;
+  ctx.font = `bold ${s}px 'Trebuchet MS', sans-serif`;
+  while (s > 10 && ctx.measureText(str).width > H - 4) { s -= 1; ctx.font = `bold ${s}px 'Trebuchet MS', sans-serif`; }
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+  ctx.lineWidth = 4; ctx.strokeStyle = INK; ctx.strokeText(str, x, y);
+  ctx.fillStyle = color; ctx.fillText(str, x, y);
+}
+
+// The station's name is a nameplate on the counter's front face, under the food; bars ride above the food.
+function drawStationLabel(ctx, tile) {
+  const name = STATION_LABEL[tile.type];
+  if (name) tileText(ctx, name, tile.x, tile.y + H / 2 - 8, 15, tile.type === 'hatch' ? '#ffd34d' : '#fff6df');
+}
+
 function drawCrate(ctx, tile, x, y, glow) {
   rr(ctx, x + 3, y + 3, H - 6, H - 6, 6, '#a8693a');
   ctx.strokeStyle = '#6e3f1f'; ctx.lineWidth = 2;
   for (const k of [20, 40]) { ctx.beginPath(); ctx.moveTo(x + 6, y + k); ctx.lineTo(x + H - 6, y + k); ctx.stroke(); }
-  rr(ctx, x + 10, y + 8, H - 20, H - 18, 10, '#f3e2bd', 2.5);
-  drawIngredient(ctx, tile.ingredient, 0, x + H / 2, y + H / 2 - 2, 17);
+  rr(ctx, x + 10, y + 6, H - 20, H - 22, 10, '#f3e2bd', 2.5);
+  drawIngredient(ctx, tile.ingredient, 0, x + H / 2, y + H / 2 - 7, 15);
+  tileText(ctx, INGREDIENTS[tile.ingredient].name.toUpperCase().slice(0, 8), x + H / 2, y + H - 10, 13, glow ? '#ffd34d' : '#fff6df');
   if (glow) {
     ctx.lineWidth = 5; ctx.strokeStyle = `rgba(255,214,64,${glow})`;
     ctx.beginPath(); ctx.roundRect(x + 1, y + 1, H - 2, H - 2, 9); ctx.stroke();
@@ -317,7 +338,7 @@ function drawBarsFor(ctx, tile, t, focusDish) {
     return;
   }
   const step = nextStep(item);
-  const by = tile.y + 16;
+  const by = tile.y - 31;
   if (step === tile.type || (step === 'chop' && tile.type === 'chop' && item.progress > 0)) {
     drawBar(ctx, cx, by, 56, item.progress, STEP_BAR[step] || '#ffad33');
   } else if (isReady(item) && isHeat(tile) && lastStep(item) === tile.type) {
@@ -327,14 +348,14 @@ function drawBarsFor(ctx, tile, t, focusDish) {
     const blink = danger && Math.sin(t * 14) > 0;
     drawBar(ctx, cx, by, 56, 1 - b, danger ? '#ff3b2f' : '#5ad15a', blink ? '#7a1010' : INK);
     if (danger) {
-      rr(ctx, cx + 10, tile.y - 34, 26, 28, 7, blink ? '#ff3b2f' : '#ffd23a', 3);
+      rr(ctx, cx + 12, tile.y - 14, 26, 28, 7, blink ? '#ff3b2f' : '#ffd23a', 3);
       ctx.fillStyle = INK; ctx.font = 'bold 24px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText('!', cx + 23, tile.y - 19);
+      ctx.fillText('!', cx + 25, tile.y + 1);
     } else {
-      drawCheck(ctx, cx + 20, tile.y - 20);
+      drawCheck(ctx, cx + 22, tile.y - 2);
     }
   } else if (isReady(item) && tile.type === 'chop') {
-    drawCheck(ctx, cx + 20, tile.y - 20);
+    drawCheck(ctx, cx + 22, tile.y - 2);
   }
 }
 
@@ -416,6 +437,7 @@ export function drawKitchen(ctx, game, t, needed) {
   if (LV.lid) for (const tile of game.kitchen.list) if (tile.type === 'pot') drawLid(ctx, tile, t);
   const firstHatch = game.kitchen.list.find((tile) => tile.type === 'hatch');
   if (firstHatch) drawHatchTools(ctx, firstHatch, t);
+  for (const tile of game.kitchen.list) drawStationLabel(ctx, tile);
   if (hz.draw) hz.draw(ctx, game, t, PAINT);
   if (target) {
     ctx.save(); ctx.setLineDash([8, 6]); ctx.lineDashOffset = -t * 30;
