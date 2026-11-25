@@ -1,6 +1,6 @@
 [
   { "name": "1-cover.jpg", "query": "?shot=cover&seed=1" },
-  { "name": "2-shop.jpg", "query": "?shot=shop&seed=1" },
-  { "name": "3-rush.jpg", "query": "?shot=rush&seed=1" },
+  { "name": "2-hotline.jpg", "query": "?shot=rush&seed=1" },
+  { "name": "3-shop.jpg", "query": "?shot=shop&seed=1" },
   { "name": "4-ledger.jpg", "query": "?shot=ledger&seed=1" }
 ]

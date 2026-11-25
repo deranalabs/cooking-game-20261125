@@ -163,6 +163,36 @@ test('fish & chips goes crate, board, fryer, pan, plate, hatch in the night mark
   assert.ok(game.tips > 20, `tipper tipped ${game.tips}`);
 });
 
+// Fires a kitchen's hazard right now through the real runner.
+function fire(game) { game.hazard.clock = 0.001; tickGame(game, 1 / 60, idle); }
+
+test('each kitchen file runs its own hazard: swell, flare, gust, feast', () => {
+  const boat = createGame(0, 4);
+  const startX = boat.chef.x;
+  fire(boat); run(boat, 1.2);
+  assert.ok(boat.chef.x < startX, 'the swell slides the cook to port');
+
+  const line = createGame(4, 4);
+  const grill = findTiles(line.kitchen, 'grill')[0];
+  grill.item = makeIngredient('chicken');        // the only busy station, so the flare goes for it
+  fire(line);
+  assert.equal(line.hazard.target, grill);
+  const target = line.hazard.target;
+  assert.ok(target, 'a flare picks a station');
+  assert.equal(heatFor(line, target), 2);
+
+  const roof = createGame(3, 4);
+  fire(roof);
+  assert.ok(roof.hazard.doused.length >= 1);
+  assert.equal(heatFor(roof, roof.hazard.doused[0]), 0);
+
+  const hall = createGame(5, 4);
+  hall.tickets.length = 0;
+  fire(hall);
+  assert.equal(hall.tickets.length, 2, 'a feast call seats two tables');
+  assert.ok(hall.tickets.every((t) => t.feast));
+});
+
 test('every kitchen, the night market included, survives a minute of play', () => {
   for (let i = 0; i < KITCHENS.length; i++) {
     const game = createGame(i, 7);
