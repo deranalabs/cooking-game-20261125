@@ -3,21 +3,27 @@
 
 export const TILE = 64;
 export const KITCHEN_Y = 176;
-export const COLS = 20;
-export const ROWS = 9;
+export const COLS = 17;
+export const ROWS = 8;
+
+// Where the kitchen lands on screen: game logic works in 64px tiles, the view draws them at 72px.
+export const VIEW = { x: 28, y: KITCHEN_Y, scale: 1.125 };
+
+export function screenToKitchen(p) {
+  return { x: (p.x - VIEW.x) / VIEW.scale, y: KITCHEN_Y + (p.y - VIEW.y) / VIEW.scale };
+}
 
 // '#' counter, '.' floor, K chop board, P pan, U pot, A plating counter, H serving hatch,
 // X trash, R plate rack; lower-case letters are ingredient crates.
 const PLAN = [
-  '#btlcm#ofsrn#R##HHH#',
-  'K..................#',
-  'K..................P',
-  '#....AAAAAAAAA.....P',
-  '#....####K####.....#',
-  '#..................U',
-  '#..................U',
-  '#..................X',
-  '#######RR###########',
+  '#btlcm#ofsrnR#HH#',
+  'K...............#',
+  'K...............X',
+  '#...AAAAAAAA....#',
+  '#...PP#K#KUU....#',
+  '#...............#',
+  '#...............#',
+  '######RR#########',
 ];
 
 const CRATES = { b: 'bun', t: 'tomato', l: 'lettuce', c: 'cheese', m: 'beef',

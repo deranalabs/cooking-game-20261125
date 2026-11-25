@@ -12,21 +12,36 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDossier } from './vendor/makefun-game.ts';
 
-const here = fileURLToPath(new URL('.', import.meta.url));
-const out = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
+// The scorer's caps: refuse here what the gate would refuse there (3 to 4 screenshots of 256 KiB at most,
+// game/ at most 993 entries and 48 MiB, paths at most 1000 bytes, dossier text cut at 160 KiB).
+const LIMITS = {
+  text_max_bytes: 163840,
+  screenshots: { max: 4, max_bytes: 262144 },
+  game_max_files: 993,
+  game_max_bytes: 50331648,
+  game_path_max_bytes: 1000,
+};
 
-mkdirSync(out, { recursive: true });
-cpSync(join(here, 'game'), join(out, 'game'), { recursive: true });
-mkdirSync(join(out, 'screenshots'), { recursive: true });
-if (existsSync(join(here, 'screenshots'))) cpSync(join(here, 'screenshots'), join(out, 'screenshots'), { recursive: true });
+const repoRoot = fileURLToPath(new URL('.', import.meta.url));
+const outputDir = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
 
-writeFileSync(
-  join(out, 'dossier.json'),
-  buildDossier(out, {
-    text_max_bytes: 163840,
-    screenshots: { max: 4, max_bytes: 262144 },
-    game_max_files: 993,
-    game_max_bytes: 50331648,
-    game_path_max_bytes: 1000,
-  }),
-);
+// The kitchen itself: index.html and its modules, copied as plain files.
+function copyKitchen(from: string, to: string): void {
+  mkdirSync(to, { recursive: true });
+  cpSync(join(from, 'game'), join(to, 'game'), { recursive: true });
+}
+
+// The cover and the other shots the judge's contact sheet is made from.
+function copyScreenshots(from: string, to: string): void {
+  mkdirSync(join(to, 'screenshots'), { recursive: true });
+  if (existsSync(join(from, 'screenshots'))) cpSync(join(from, 'screenshots'), join(to, 'screenshots'), { recursive: true });
+}
+
+// dossier.json, written by the kit's own library so the gate can rebuild it byte for byte.
+function writeDossier(to: string): void {
+  writeFileSync(join(to, 'dossier.json'), buildDossier(to, LIMITS));
+}
+
+copyKitchen(repoRoot, outputDir);
+copyScreenshots(repoRoot, outputDir);
+writeDossier(outputDir);

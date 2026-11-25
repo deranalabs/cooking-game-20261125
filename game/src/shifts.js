@@ -12,7 +12,7 @@ export function createGame(shiftIndex, seed) {
   const game = {
     shiftIndex, shift, seed, rng: createRng(seed * 977 + shiftIndex * 31 + 5),
     kitchen: buildKitchen(),
-    chef: createChef(9.5 * TILE, KITCHEN_Y + 6.5 * TILE),
+    chef: createChef(8.5 * TILE, KITCHEN_Y + 5.5 * TILE),
     tickets: [], focus: null, uid: 0, lastDish: null,
     clock: 0, timeLeft: shift.length, rush: false, frozen: false,
     score: 0, tips: 0, served: 0, missed: 0, combo: 0, bestCombo: 0,
