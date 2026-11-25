@@ -1,26 +1,27 @@
 // SPDX-License-Identifier: MIT
-// Order board: tickets arrive, their patience drains, and a served plate pays price, tip and combo.
+// Order board: a regular or critic orders, patience drains, and a served plate pays price, tip and combo.
 import { dishById, dishPrice, stepsOf, RUSH_PATIENCE, RUSH_GAP } from './recipes.js';
 import { plateMakes } from './items.js';
+import { pickGuest, CRITIC_PAY } from './regulars.js';
 
 export const MISS_PENALTY = 10;
 
 function patienceFor(game, dish) {
   const steps = dish.layers.reduce((n, id) => n + stepsOf(id).length, 0);
-  const base = game.shift.patience + steps * 4;
+  const base = (game.shift.patience + steps * 4) * (game.mods ? game.mods.patience : 1);
   return base * (game.rush ? RUSH_PATIENCE : 1);
 }
 
-export function addTicket(game, dish) {
-  const max = patienceFor(game, dish);
-  const ticket = { uid: ++game.uid, dish, patience: max, max, flash: 0, slide: 1 };
+export function addTicket(game, dish, guest = pickGuest(game)) {
+  const max = patienceFor(game, dish) * (guest.critic ? 0.85 : 1);
+  const ticket = { uid: ++game.uid, dish, guest, patience: max, max, flash: 0, slide: 1 };
   game.tickets.push(ticket);
-  game.events.push({ type: 'ticket', uid: ticket.uid });
+  game.events.push({ type: 'ticket', uid: ticket.uid, critic: !!guest.critic });
   return ticket;
 }
 
 // A new ticket prefers a dish not already on the board, so routes keep changing.
-function pickDish(game) {
+export function pickDish(game) {
   const onBoard = new Set(game.tickets.map((t) => t.dish.id));
   const fresh = game.shift.menu.filter((id) => !onBoard.has(id) && id !== game.lastDish);
   const id = game.rng.pick(fresh.length ? fresh : game.shift.menu);
@@ -44,7 +45,7 @@ export function tickOrders(game, dt) {
     game.combo = 0;
     game.score = Math.max(0, game.score - MISS_PENALTY);
     if (game.focus === t.uid) game.focus = null;
-    game.events.push({ type: 'expire', dish: t.dish });
+    game.events.push({ type: 'expire', dish: t.dish, guest: t.guest });
   }
   game.spawnIn -= dt;
   if (game.tickets.length === 0) game.spawnIn = Math.min(game.spawnIn, 1.5);
@@ -61,19 +62,26 @@ export function ticketForPlate(game, plate) {
   return fits.find((t) => t.uid === game.focus) ?? fits.reduce((a, b) => (a.patience <= b.patience ? a : b));
 }
 
-export function serveTicket(game, ticket) {
+// quality 0..1 is how fresh the plate's layers were (see items.plateQuality); critics pay by it.
+export function serveTicket(game, ticket, quality = 1, at = null) {
   const price = dishPrice(ticket.dish);
-  const tip = Math.round(price * 0.8 * Math.max(0, ticket.patience / ticket.max));
+  const critic = !!ticket.guest.critic;
+  const jar = game.mods ? game.mods.jar : 0;
+  let tip = Math.round(price * 0.8 * Math.max(0, ticket.patience / ticket.max)) + jar;
+  if (critic) tip = Math.round(tip * CRITIC_PAY * (0.5 + quality));
   game.combo += 1;
   game.bestCombo = Math.max(game.bestCombo, game.combo);
   const mult = 1 + Math.min(game.combo - 1, 4) * 0.25;
-  const gain = Math.round((price + tip) * mult);
+  const pay = critic ? price * CRITIC_PAY * (0.5 + quality) : price;
+  const gain = Math.round((pay + tip) * mult);
   game.score += gain;
   game.tips += tip;
   game.served += 1;
+  if (critic) game.critics.push({ name: ticket.guest.name, dish: ticket.dish.name, quality });
   game.tickets.splice(game.tickets.indexOf(ticket), 1);
   if (game.focus === ticket.uid) game.focus = null;
-  game.events.push({ type: 'serve', gain, tip, mult, dish: ticket.dish });
+  game.events.push({ type: 'serve', gain, tip, mult, dish: ticket.dish, guest: ticket.guest, critic, quality,
+    x: at ? at.x : null, y: at ? at.y : null });
 }
 
 export function focusTicket(game, uid) {

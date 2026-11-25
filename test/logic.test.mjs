@@ -2,7 +2,8 @@
 // Logic harness: drives the DOM-free game modules through a real order, run with `node --test test/`.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DISHES, INGREDIENT_IDS, SHIFTS, dishById } from '../game/src/recipes.js';
+import { DISHES, INGREDIENT_IDS, dishById } from '../game/src/recipes.js';
+import { KITCHENS } from '../game/src/kitchens/roster.js';
 import { makeIngredient, makePlate, isReady, canAddToPlate, missingLayers } from '../game/src/items.js';
 import { findTiles } from '../game/src/kitchen-layout.js';
 import { createGame, tickGame } from '../game/src/shifts.js';
@@ -29,7 +30,7 @@ function run(game, seconds, input = idle) {
 test('recipe book is big enough', () => {
   assert.ok(DISHES.length >= 6);
   assert.ok(INGREDIENT_IDS.length >= 8);
-  assert.equal(SHIFTS.length, 3);
+  assert.equal(KITCHENS.length, 6);
 });
 
 test('plate only takes ready layers that fit a dish on the menu', () => {

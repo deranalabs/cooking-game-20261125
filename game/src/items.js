@@ -7,7 +7,16 @@ export function makeIngredient(id) {
 }
 
 export function makePlate() {
-  return { kind: 'plate', layers: [], serving: 0, pop: 0 };
+  return { kind: 'plate', layers: [], fresh: [], serving: 0, pop: 0 };
+}
+
+const BURN_SECONDS = 7;
+
+// 0..1: how fresh the layers were when they went on (an item left on the heat loses freshness).
+export function plateQuality(plate) {
+  const f = plate.fresh || [];
+  if (f.length === 0) return 1;
+  return f.reduce((a, b) => a + b, 0) / f.length;
 }
 
 export function nextStep(item) {
@@ -51,6 +60,7 @@ export function canAddToPlate(plate, item, menu) {
 
 export function addToPlate(plate, item) {
   plate.layers.push(item.id);
+  (plate.fresh ||= []).push(Math.max(0, 1 - item.overcook / BURN_SECONDS));
   plate.pop = 1;
 }
 

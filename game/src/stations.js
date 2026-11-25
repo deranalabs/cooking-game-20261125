@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Stations: pick up and drop at crates, rack, counters, chop board, stove, trash and serving hatch.
-import { makeIngredient, makePlate, nextStep, isReady, lastStep, advanceStep, canAddToPlate, addToPlate } from './items.js';
+import { makeIngredient, makePlate, nextStep, isReady, lastStep, advanceStep, canAddToPlate, addToPlate, plateQuality } from './items.js';
 import { ticketForPlate, serveTicket } from './orders.js';
 import { facingTile } from './chef.js';
+import { hatchOpen, heatFor } from './hazards.js';
 
 export const COOK_TIME = { pan: 4.5, pot: 5.5 };
 export const BURN_TIME = 7;          // seconds a done item survives on the heat
@@ -18,7 +19,7 @@ function say(game, type, tile, extra = {}) {
 function holderAccepts(tile, item) {
   if (tile.type === 'chop') return item.kind === 'ing';
   if (tile.type === 'pan' || tile.type === 'pot') return nextStep(item) === tile.type;
-  return tile.type === 'counter' || tile.type === 'plating';
+  return tile.type === 'counter' || tile.type === 'plating' || tile.type === 'belt';
 }
 
 // One press of E (or a tap of Space away from a board): the whole pick/drop/plate rule.
@@ -45,11 +46,12 @@ export function interact(game) {
   }
   if (tile.type === 'trash') {
     if (!hold) return false;
-    if (hold.kind === 'plate') hold.layers = []; else chef.hold = null;
+    if (hold.kind === 'plate') { hold.layers = []; hold.fresh = []; } else chef.hold = null;
     say(game, 'trash', tile); return true;
   }
   if (tile.type === 'hatch') {
     if (!hold || hold.kind !== 'plate' || tile.item) return false;
+    if (!hatchOpen(game)) { say(game, 'nope', tile, { text: 'Shutter is down!' }); return false; }
     const ticket = ticketForPlate(game, hold);
     if (!ticket) { say(game, 'nope', tile, { text: 'No ticket wants that' }); return false; }
     hold.serving = SERVE_DELAY;
@@ -82,7 +84,7 @@ export function chopAt(game, dt, held) {
   }
   chef.chopping = true;
   const item = tile.item;
-  item.progress += dt / CHOP_TIME;
+  item.progress += dt / (CHOP_TIME * (game.mods ? game.mods.chop : 1));
   chef.chopBeat = (chef.chopBeat || 0) + dt;
   if (chef.chopBeat >= CHOP_BEAT) { chef.chopBeat -= CHOP_BEAT; item.squash = 1; say(game, 'chop', tile); }
   if (item.progress >= 1) { advanceStep(item); item.squash = 1; say(game, 'chopped', tile); }
@@ -105,22 +107,24 @@ export function tickStations(game, dt) {
     if (item.squash > 0) item.squash = Math.max(0, item.squash - dt * 6);
     if (item.pop > 0) item.pop = Math.max(0, item.pop - dt * 4);
     if (tile.type === 'pan' || tile.type === 'pot') {
+      const heat = heatFor(game, tile);
       if (nextStep(item) === tile.type) {
-        item.progress += dt / COOK_TIME[tile.type];
+        item.progress += (dt * heat) / (COOK_TIME[tile.type] * (game.mods ? game.mods.cook : 1));
         if (item.progress >= 1) { advanceStep(item); say(game, 'cooked', tile); }
       } else if (isReady(item) && lastStep(item) === tile.type) {
         const before = burnShare(item);
-        item.overcook += dt;
+        item.overcook += (dt * heat) / (game.mods ? game.mods.burn : 1);
         if (before < WARN_AT && burnShare(item) >= WARN_AT) say(game, 'warn', tile);
-        if (item.overcook >= BURN_TIME) { item.burnt = true; say(game, 'burnt', tile); }
+        if (item.overcook >= BURN_TIME) { item.burnt = true; game.burnt += 1; say(game, 'burnt', tile); }
       }
     }
     if (tile.type === 'hatch' && item.kind === 'plate') {
+      if (!hatchOpen(game)) continue;
       item.serving -= dt;
       if (item.serving <= 0) {
         const ticket = game.tickets.find((t) => t.uid === item.ticketUid) ?? ticketForPlate(game, item);
         tile.item = null;
-        if (ticket) { serveTicket(game, ticket); say(game, 'served', tile); }
+        if (ticket) { serveTicket(game, ticket, plateQuality(item), tile); say(game, 'served', tile); }
         else say(game, 'nope', tile, { text: 'Ticket walked out' });
       }
     }

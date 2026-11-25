@@ -24,11 +24,16 @@ export function moveChef(game, dt, move) {
   if (len === 0) { chef.walk = 0; return; }
   mx /= len; my /= len;
   chef.face = Math.abs(mx) > Math.abs(my) ? { x: Math.sign(mx), y: 0 } : { x: 0, y: Math.sign(my) };
-  const nx = chef.x + mx * SPEED * dt;
-  if (!blocked(game.kitchen, nx, chef.y)) chef.x = nx;
-  const ny = chef.y + my * SPEED * dt;
-  if (!blocked(game.kitchen, chef.x, ny)) chef.y = ny;
+  const speed = SPEED * (game.mods ? game.mods.speed : 1);
+  nudgeChef(game, mx * speed * dt, my * speed * dt);
   chef.walk += dt * 10;
+}
+
+// Moves the chef by a step, sliding along counters instead of passing through them (also used by the swell).
+export function nudgeChef(game, dx, dy) {
+  const chef = game.chef;
+  if (dx && !blocked(game.kitchen, chef.x + dx, chef.y)) chef.x += dx;
+  if (dy && !blocked(game.kitchen, chef.x, chef.y + dy)) chef.y += dy;
 }
 
 // The station tile right in front of the chef, or null when they face open floor.

@@ -13,28 +13,17 @@ export function screenToKitchen(p) {
   return { x: (p.x - VIEW.x) / VIEW.scale, y: KITCHEN_Y + (p.y - VIEW.y) / VIEW.scale };
 }
 
-// '#' counter, '.' floor, K chop board, P pan, U pot, A plating counter, H serving hatch,
-// X trash, R plate rack; lower-case letters are ingredient crates.
-const PLAN = [
-  '#btlcm#ofsrnR#HH#',
-  'K...............#',
-  'K...............X',
-  '#...AAAAAAAA....#',
-  '#...PP#K#KUU....#',
-  '#...............#',
-  '#...............#',
-  '######RR#########',
-];
-
+// Plans live in kitchens/*.js: '#' counter, '.' floor, K chop board, P pan, U pot, A plating counter,
+// H serving hatch, X trash, R plate rack, '>' conveyor belt; lower-case letters are ingredient crates.
 const CRATES = { b: 'bun', t: 'tomato', l: 'lettuce', c: 'cheese', m: 'beef',
   o: 'onion', f: 'fish', s: 'mushroom', r: 'rice', n: 'noodles' };
 const TYPES = { '#': 'counter', '.': 'floor', K: 'chop', P: 'pan', U: 'pot', A: 'plating',
-  H: 'hatch', X: 'trash', R: 'rack' };
+  H: 'hatch', X: 'trash', R: 'rack', '>': 'belt' };
 
-export function buildKitchen() {
+export function buildKitchen(plan) {
   const grid = [];
   const list = [];
-  PLAN.forEach((line, row) => {
+  plan.forEach((line, row) => {
     grid.push([...line].map((ch, col) => {
       const tile = {
         col, row, type: CRATES[ch] ? 'crate' : TYPES[ch], ingredient: CRATES[ch] || null, item: null,
@@ -61,4 +50,11 @@ export function isSolid(tile) {
 
 export function findTiles(kitchen, type) {
   return kitchen.list.filter((t) => t.type === type);
+}
+
+// The floor tile nearest the middle of the room, where the chef starts a shift.
+export function startTile(kitchen) {
+  const floors = findTiles(kitchen, 'floor');
+  const d = (t) => Math.hypot(t.col - 8, t.row - 4.6);
+  return floors.reduce((a, b) => (d(a) <= d(b) ? a : b));
 }

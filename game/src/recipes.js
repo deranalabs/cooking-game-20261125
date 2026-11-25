@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Recipe book: the ten ingredients, the prep steps each needs, the eight dishes and the three shifts.
+// Recipe book: the ten ingredients, the prep steps each needs, the thirteen dishes and their prices.
 
 // steps: 'chop' at a board, 'pan' or 'pot' on the stove; an ingredient is ready once every step is done.
 export const INGREDIENTS = {
@@ -27,6 +27,11 @@ export const DISHES = [
   { id: 'harbor',  name: 'Harbor Bowl',    layers: ['rice', 'fish', 'lettuce'] },
   { id: 'ember',   name: 'Ember Stack',    layers: ['bun', 'beef', 'cheese', 'mushroom'] },
   { id: 'garden',  name: 'Garden Noodles', layers: ['noodles', 'tomato', 'lettuce'] },
+  { id: 'fisher',  name: 'Fisher Roll',    layers: ['bun', 'fish', 'lettuce', 'tomato'] },
+  { id: 'risotto', name: 'Roof Risotto',   layers: ['rice', 'mushroom', 'cheese'] },
+  { id: 'ramen',   name: 'Foundry Ramen',  layers: ['noodles', 'beef', 'onion', 'mushroom'] },
+  { id: 'smoke',   name: 'Smokehouse Bun', layers: ['bun', 'beef', 'onion', 'cheese'] },
+  { id: 'platter', name: 'Guild Platter',  layers: ['rice', 'beef', 'mushroom', 'tomato'] },
 ];
 
 export function stepsOf(ingredientId) {
@@ -42,16 +47,7 @@ export function dishPrice(dish) {
   return 12 + dish.layers.reduce((sum, id) => sum + stepsOf(id).length * 9, 0);
 }
 
-// Shifts: menu grows, more tickets at once, less patience. Pressure only, never new chores.
-export const SHIFTS = [
-  { name: 'Morning Market', length: 150, menu: ['salad', 'melt', 'burger'],
-    maxTickets: 3, patience: 75, spawnGap: [15, 21], stars: [90, 180, 270] },
-  { name: 'Harbor Lunch', length: 165, menu: ['salad', 'melt', 'burger', 'lantern', 'forest'],
-    maxTickets: 4, patience: 66, spawnGap: [12, 17], stars: [120, 230, 340] },
-  { name: 'Lantern Night', length: 180, menu: DISHES.map((d) => d.id),
-    maxTickets: 4, patience: 58, spawnGap: [10, 14], stars: [150, 280, 410] },
-];
-
+// Each kitchen (kitchens/) sets its own clock, patience and star lines; the rush rules are shared.
 export const RUSH_SECONDS = 35;     // the last stretch of a shift is the rush
 export const RUSH_PATIENCE = 0.72;  // tickets in the rush have this share of patience
 export const RUSH_GAP = 0.55;       // and arrive this much sooner
