@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
-// Upgrade shop screen: six tools with prices, what the wallet can afford, and what is already owned.
-import { UPGRADES, canAfford } from './shop.js';
+// Upgrade shop screen: eight tools in two tiers, their prices, what the wallet affords and what is owned.
+import { UPGRADES, canAfford, levelOf, nextPrice } from './shop.js';
 import { KITCHENS } from './kitchens/roster.js';
 import { INK, card, label, title, coin, button, backdrop } from './draw-ui.js';
 
 export function shopCardRect(i) {
-  return { x: 150 + (i % 3) * 335, y: 200 + Math.floor(i / 3) * 210, w: 310, h: 190 };
+  return { x: 28 + (i % 4) * 309, y: 196 + Math.floor(i / 4) * 222, w: 297, h: 208 };
 }
 
 export function shopDoneButton() {
-  return { x: 465, y: 650, w: 350, h: 60, label: 'ENTER  Plan the menu' };
+  return { x: 465, y: 652, w: 350, h: 60, label: 'ENTER  Plan the menu' };
 }
 
 function drawTool(ctx, id, x, y) {
@@ -24,6 +24,8 @@ function drawTool(ctx, id, x, y) {
     ctx.fillStyle = '#d0783a'; ctx.beginPath(); ctx.roundRect(-30, -16, 60, 40, 8); ctx.fill(); ctx.stroke();
     ctx.fillStyle = '#f0a060'; ctx.fillRect(-24, -12, 8, 30);
     ctx.fillStyle = '#9a4a1a'; ctx.beginPath(); ctx.roundRect(-34, -22, 68, 10, 4); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#e0904a'; ctx.beginPath(); ctx.ellipse(0, -26, 30, 8, 0, Math.PI, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(0, -36, 5, 0, Math.PI * 2); ctx.fill();
   } else if (id === 'warmer') {
     ctx.fillStyle = '#c84a2a'; ctx.beginPath(); ctx.roundRect(-30, 4, 60, 20, 6); ctx.fill(); ctx.stroke();
     for (let k = 0; k < 3; k++) { ctx.fillStyle = '#fbfaf5'; ctx.beginPath(); ctx.ellipse(0, 0 - k * 7, 28, 8, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
@@ -35,6 +37,16 @@ function drawTool(ctx, id, x, y) {
   } else if (id === 'clogs') {
     ctx.fillStyle = '#c8945a'; ctx.beginPath(); ctx.ellipse(0, 10, 32, 14, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     ctx.fillStyle = '#5a8a3a'; ctx.beginPath(); ctx.ellipse(-6, 0, 22, 14, 0, Math.PI, 0); ctx.fill(); ctx.stroke();
+  } else if (id === 'skillet') {
+    ctx.fillStyle = '#4a4a52'; ctx.beginPath(); ctx.roundRect(18, -5, 26, 10, 4); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#2a2a30'; ctx.beginPath(); ctx.arc(-4, 0, 26, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = '#d0783a'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(-4, 0, 22, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(-4, 0, 16, Math.PI * 1.1, Math.PI * 1.5); ctx.stroke();
+  } else if (id === 'bell') {
+    ctx.fillStyle = '#7a4a2a'; ctx.beginPath(); ctx.roundRect(-30, 18, 60, 10, 4); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#ffd34d'; ctx.beginPath(); ctx.moveTo(-24, 18); ctx.quadraticCurveTo(-24, -24, 0, -24); ctx.quadraticCurveTo(24, -24, 24, 18); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(0, -28, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.fillRect(-14, -12, 5, 24);
   } else {
     ctx.fillStyle = '#c9963f'; ctx.beginPath(); ctx.moveTo(-18, -28); ctx.lineTo(18, -28); ctx.lineTo(-18, 28); ctx.lineTo(18, 28); ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.fillStyle = '#ffe9a0'; ctx.beginPath(); ctx.moveTo(-8, 20); ctx.lineTo(8, 20); ctx.lineTo(0, 6); ctx.closePath(); ctx.fill();
@@ -51,22 +63,30 @@ export function drawShop(ctx, ledger, nextKitchen, t, W, H) {
   label(ctx, `Wallet $${ledger.wallet}`, W / 2 + 10, 163, 24, '#ffd34d', 'center');
   UPGRADES.forEach((u, i) => {
     const r = shopCardRect(i);
-    const owned = ledger.owned.includes(u.id);
+    const lvl = levelOf(ledger, u.id);
+    const maxed = lvl >= u.tiers.length;
+    const price = nextPrice(ledger, u.id);
     const can = canAfford(ledger, u.id);
-    card(ctx, r.x, r.y, r.w, r.h, 16, owned ? '#cfe8c4' : can ? '#fff6df' : '#d8c8a8', can ? 5 : 3, can ? '#ffb02e' : INK);
-    card(ctx, r.x + 14, r.y + 18, 90, 90, 12, '#f3e3c0', 2);
-    drawTool(ctx, u.id, r.x + 59, r.y + 63);
-    label(ctx, `${i + 1}`, r.x + 22, r.y + 28, 14, '#8a6a4a');
-    label(ctx, u.name, r.x + 116, r.y + 36, 20, INK);
-    ctx.font = "15px 'Trebuchet MS', Verdana, sans-serif";
-    label(ctx, u.says, r.x + 116, r.y + 66, 15, '#5a3524', 'left', 'normal');
-    const tag = owned ? 'OWNED' : can ? `BUY  $${u.price}` : `$${u.price}  need $${u.price - ledger.wallet}`;
+    card(ctx, r.x, r.y, r.w, r.h, 16, maxed ? '#cfe8c4' : can ? '#fff6df' : '#d8c8a8', can ? 5 : 3, can ? '#ffb02e' : INK);
+    card(ctx, r.x + 12, r.y + 14, 80, 80, 12, lvl ? '#ffe7a0' : '#f3e3c0', 2);
+    drawTool(ctx, u.icon, r.x + 52, r.y + 54);
+    label(ctx, `${i + 1}`, r.x + 20, r.y + 24, 14, '#8a6a4a');
+    label(ctx, u.name, r.x + 102, r.y + 28, 18, INK);
+    // tier pips: filled for every tier owned
+    for (let k = 0; k < u.tiers.length; k++) {
+      card(ctx, r.x + 102 + k * 62, r.y + 44, 56, 22, 11, k < lvl ? '#3fbf4f' : '#fff8e8', 2);
+      label(ctx, `TIER ${k === 0 ? 'I' : 'II'}`, r.x + 130 + k * 62, r.y + 55.5, 11, k < lvl ? '#fff8e8' : '#8a6a4a', 'center');
+    }
+    label(ctx, maxed ? 'top tier' : `next: ${u.tiers[lvl].says}`, r.x + 102, r.y + 80, 13, '#5a3524', 'left', 'bold');
+    if (lvl) label(ctx, `now: ${u.tiers[lvl - 1].says}`, r.x + 14, r.y + 112, 13, '#2f7a3a', 'left', 'bold');
+    label(ctx, `in play: ${u.seen}`, r.x + 14, r.y + 132, 12, '#8a6a4a', 'left', 'italic');
+    const tag = maxed ? 'MAXED' : can ? `BUY TIER ${lvl ? 'II' : 'I'}  $${price}` : `$${price}  need $${price - ledger.wallet}`;
     const pulse = can ? 1 + Math.sin(t * 5 + i) * 0.03 : 1;
-    ctx.save(); ctx.translate(r.x + r.w / 2, r.y + 150); ctx.scale(pulse, pulse);
-    card(ctx, -130, -22, 260, 44, 22, owned ? '#4aa84a' : can ? '#ff9a2a' : '#8a7a62', 3);
-    label(ctx, tag, 0, 1, 20, owned || !can ? '#fff8e8' : INK, 'center');
+    ctx.save(); ctx.translate(r.x + r.w / 2, r.y + 174); ctx.scale(pulse, pulse);
+    card(ctx, -126, -20, 252, 40, 20, maxed ? '#4aa84a' : can ? '#ff9a2a' : '#8a7a62', 3);
+    label(ctx, tag, 0, 1, 18, maxed || !can ? '#fff8e8' : INK, 'center');
     ctx.restore();
   });
   button(ctx, shopDoneButton());
-  label(ctx, 'click a tool or press 1-6 to buy · money carries over between shifts', W / 2, 735, 16, '#e9d3a8', 'center', 'normal');
+  label(ctx, 'click a tool or press 1-8 to buy the next tier · tools and money carry over between shifts', W / 2, 735, 16, '#e9d3a8', 'center', 'normal');
 }

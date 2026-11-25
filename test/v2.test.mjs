@@ -17,8 +17,8 @@ import { addTicket, serveTicket } from '../game/src/orders.js';
 const idle = { move: { x: 0, y: 0 }, chopHeld: false };
 function run(game, seconds) { for (let s = 0; s < seconds; s += 1 / 60) tickGame(game, 1 / 60, idle); }
 
-test('six kitchens, each a full 17x8 plan with every station and a hazard', () => {
-  assert.equal(KITCHENS.length, 6);
+test('six kitchens or more, each a full 17x8 plan with every station and a hazard', () => {
+  assert.ok(KITCHENS.length >= 6);
   const hazards = new Set();
   for (const k of KITCHENS) {
     assert.equal(k.plan.length, ROWS, k.id);
@@ -33,7 +33,7 @@ test('six kitchens, each a full 17x8 plan with every station and a hazard', () =
     }
     hazards.add(k.hazard.kind);
   }
-  assert.equal(hazards.size, 6, 'every kitchen has its own hazard');
+  assert.equal(hazards.size, KITCHENS.length, 'every kitchen has its own hazard');
 });
 
 test('later kitchens unlock more dishes', () => {
@@ -56,7 +56,7 @@ test('a shift serves only the planned menu', () => {
   const menu = defaultMenu(2);
   const game = createGame(2, 3, { menu });
   run(game, 40);
-  for (const t of game.tickets) assert.ok(menu.includes(t.dish.id), t.dish.id);
+  for (const t of game.tickets) assert.ok(menu.includes(t.dish.base || t.dish.id), t.dish.id);
 });
 
 test('regulars have names, colours, lines, and two critics among them', () => {
@@ -92,10 +92,10 @@ test('shop: buy only what the ledger affords, money persists, upgrades change th
   assert.ok(UPGRADES.length >= 4);
   const knife = UPGRADES.find((u) => u.id === 'knife');
   assert.equal(canAfford(ledger, 'knife'), false);
-  ledger.wallet = knife.price + 5;
+  ledger.wallet = knife.tiers[0].price + 5;
   assert.equal(buyUpgrade(ledger, 'knife'), true);
   assert.equal(ledger.wallet, 5);
-  assert.equal(buyUpgrade(ledger, 'knife'), false, 'owned once');
+  assert.equal(buyUpgrade(ledger, 'knife'), false, 'tier 2 costs more than the wallet');
   assert.ok(modsFor(ledger.owned).chop < 1);
   const game = createGame(0, 1, { mods: modsFor(ledger.owned) });
   assert.ok(game.mods.chop < 1);

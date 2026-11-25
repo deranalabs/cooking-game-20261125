@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Kitchen renderer: tiled floor, counters, crates, boards, stoves, hatch, the chef and progress bars.
-import { TILE, KITCHEN_Y, COLS, ROWS } from './kitchen-layout.js';
+import { TILE, KITCHEN_Y, COLS, ROWS, isHeat } from './kitchen-layout.js';
 import { drawIngredient, drawPlate, readyStage } from './draw-food.js';
 import { nextStep, isReady, lastStep, missingLayers } from './items.js';
 import { burnShare, WARN_AT } from './stations.js';
 import { facingTile } from './chef.js';
-import { hatchOpen } from './hazards.js';
+import { RUSH_SECONDS } from './recipes.js';
 
 const INK = '#2b1a12';
 const H = TILE;
@@ -15,6 +15,21 @@ function rr(ctx, x, y, w, h, r, fill, line = 3) {
   ctx.fillStyle = fill; ctx.fill();
   if (line) { ctx.lineWidth = line; ctx.strokeStyle = INK; ctx.stroke(); }
 }
+
+// A bold rounded label (OUT, DOUSED, FLARE x2) a kitchen's hazard art pins over a tile.
+function tag(ctx, str, x, y, fill) {
+  ctx.font = "bold 14px 'Trebuchet MS', sans-serif";
+  const w = Math.max(44, ctx.measureText(str).width + 18);
+  rr(ctx, x - w / 2, y - 11, w, 22, 9, fill, 2.5);
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(str, x, y + 0.5);
+}
+
+// What a kitchen file's draw hooks are handed: shapes, tile size and the room's bounds.
+const PAINT = { rr, tag, H, INK, width: COLS * H, height: ROWS * H, top: KITCHEN_Y };
+
+// Bought tools show in the kitchen: the level of one, 0 when not bought.
+let LV = {};
 
 // The kitchen being drawn sets the palette: floor tiles, grout, counter tops and sides.
 let PAL = { floorA: '#f0d3a6', floorB: '#c9774f', grout: '#5b3a2a', top: '#f6e9cc', side: '#b9784a' };
@@ -47,55 +62,81 @@ function counterBase(ctx, x, y, top = PAL.top) {
   ctx.fillStyle = 'rgba(120,80,40,0.10)'; ctx.fillRect(x + 10, y + 22, H - 26, 2); ctx.fillRect(x + 16, y + 34, H - 30, 2);
 }
 
-// The diner conveyor: dark rubber with chevrons that crawl toward the hatch.
-function drawBelt(ctx, x, y, t) {
-  rr(ctx, x + 1, y + 6, H - 2, H - 16, 4, '#2c3036', 3);
-  ctx.save(); ctx.beginPath(); ctx.rect(x + 2, y + 8, H - 4, H - 20); ctx.clip();
-  const off = (t * 40) % 22;
-  ctx.strokeStyle = '#ffb02e'; ctx.lineWidth = 3;
-  for (let k = -22; k < H; k += 22) {
-    const cx = x + k + off;
-    ctx.beginPath(); ctx.moveTo(cx, y + 14); ctx.lineTo(cx + 8, y + 26); ctx.lineTo(cx, y + 38); ctx.stroke();
-  }
-  ctx.restore();
-  ctx.fillStyle = '#9aa3ad'; ctx.fillRect(x + 1, y + H - 12, H - 2, 4);
-}
-
-// The market shutter: corrugated slats pulled down over the hatch.
-function drawShutter(ctx, x, y) {
-  rr(ctx, x + 1, y + 1, H - 2, H - 6, 4, '#8a9298', 3);
-  for (let k = 8; k < H - 8; k += 9) { ctx.fillStyle = '#5d666c'; ctx.fillRect(x + 4, y + k, H - 8, 3); }
-  ctx.fillStyle = '#c8261a'; ctx.fillRect(x + H / 2 - 10, y + H - 14, 20, 6);
-}
-
-// A gust over a blown-out burner, or a flare-up licking over a hot one.
-function drawStoveHazard(ctx, tile, kind, t) {
-  const x = tile.x; const y = tile.y;
-  if (kind === 'gust') {
-    ctx.strokeStyle = 'rgba(220,240,255,0.95)'; ctx.lineWidth = 4;
-    for (let k = 0; k < 3; k++) {
-      const o = ((t * 60 + k * 22) % 66) - 33;
-      ctx.beginPath(); ctx.moveTo(x - 34 + o, y - 20 + k * 14); ctx.quadraticCurveTo(x + o, y - 32 + k * 14, x + 30 + o, y - 18 + k * 14); ctx.stroke();
-    }
-    rr(ctx, x - 22, y - 46, 44, 20, 8, '#4aa3d8', 2.5);
-    ctx.fillStyle = '#fff'; ctx.font = "bold 13px 'Trebuchet MS', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('OUT', x, y - 35.5);
-  } else {
-    for (let k = 0; k < 5; k++) {
-      const a = k / 4 - 0.5; const h = 26 + Math.sin(t * 18 + k * 2) * 8;
-      ctx.beginPath(); ctx.moveTo(x + a * 50 - 8, y + 10); ctx.quadraticCurveTo(x + a * 56, y - h, x + a * 50 + 8, y + 10);
-      ctx.fillStyle = k % 2 ? 'rgba(255,200,40,0.85)' : 'rgba(255,90,30,0.85)'; ctx.fill();
-    }
-  }
-}
-
-// Warm lantern light from above with darker corners, drawn over the room.
+// Warm lantern light from above with darker corners; the edges glow hotter as the rush runs on.
 export function drawVignette(ctx, game) {
   const w = COLS * H; const h = ROWS * H; const cx = w / 2; const cy = KITCHEN_Y + h / 2;
+  const heat = game.rush ? Math.min(1, 1 - game.timeLeft / RUSH_SECONDS) : 0;
   const g = ctx.createRadialGradient(cx, cy - 40, h * 0.25, cx, cy, w * 0.62);
-  g.addColorStop(0, 'rgba(255,200,120,0.07)'); g.addColorStop(0.6, 'rgba(40,20,10,0)');
-  g.addColorStop(1, game.rush ? 'rgba(120,10,0,0.42)' : 'rgba(20,8,2,0.42)');
+  g.addColorStop(0, `rgba(255,200,120,${0.07 + heat * 0.06})`); g.addColorStop(0.6, 'rgba(40,20,10,0)');
+  g.addColorStop(1, game.rush ? `rgba(${120 + heat * 80},${20 + heat * 30},0,${0.42 + heat * 0.12})` : 'rgba(20,8,2,0.42)');
   ctx.fillStyle = g; ctx.fillRect(0, KITCHEN_Y, w, h);
+}
+
+// The deep fryer: a steel basin of golden oil that bubbles while food is in it.
+function drawFryer(ctx, tile, x, y, t, hot) {
+  rr(ctx, x + 2, y + 2, H - 4, H - 4, 8, '#5a626e');
+  rr(ctx, x + 8, y + 8, H - 16, H - 20, 6, '#2a2e36', 2.5);
+  const oil = ctx.createLinearGradient(0, y + 10, 0, y + H - 14);
+  oil.addColorStop(0, hot ? '#ffcf4a' : '#d9a83a'); oil.addColorStop(1, hot ? '#e08a1a' : '#a8782a');
+  rr(ctx, x + 11, y + 11, H - 22, H - 26, 4, oil, 0);
+  if (hot) for (let k = 0; k < 5; k++) {
+    const b = (t * 2.2 + k * 0.37) % 1;
+    ctx.beginPath(); ctx.arc(x + 16 + ((k * 13) % 32), y + H - 18 - b * 24, 2 + b * 2, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(255,248,210,${1 - b})`; ctx.lineWidth = 1.5; ctx.stroke();
+  }
+  ctx.fillStyle = '#c0c8d2'; ctx.fillRect(x + 14, y + H - 12, H - 28, 4);   // basket handle
+  if (LV.skillet) { ctx.strokeStyle = '#d0783a'; ctx.lineWidth = 3; ctx.strokeRect(x + 7, y + 7, H - 14, H - 18); }
+}
+
+// The brick oven: an arched mouth that glows orange while something bakes.
+function drawOven(ctx, tile, x, y, t, hot) {
+  rr(ctx, x + 2, y + 2, H - 4, H - 4, 8, '#9a4a32');
+  ctx.strokeStyle = 'rgba(60,20,10,0.5)'; ctx.lineWidth = 1.5;
+  for (let r = 0; r < 4; r++) { ctx.beginPath(); ctx.moveTo(x + 4, y + 12 + r * 13); ctx.lineTo(x + H - 4, y + 12 + r * 13); ctx.stroke(); }
+  ctx.beginPath(); ctx.moveTo(x + 12, y + H - 12); ctx.lineTo(x + 12, y + 28); ctx.arc(x + H / 2, y + 28, 20, Math.PI, 0); ctx.lineTo(x + H - 12, y + H - 12); ctx.closePath();
+  const mouth = ctx.createRadialGradient(x + H / 2, y + H - 18, 2, x + H / 2, y + H - 18, 34);
+  mouth.addColorStop(0, hot ? `rgba(255,${190 + Math.sin(t * 6) * 30},80,1)` : '#3a2018'); mouth.addColorStop(1, hot ? '#a8301a' : '#1e100c');
+  ctx.fillStyle = mouth; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.stroke();
+  if (LV.skillet) { ctx.fillStyle = '#d0783a'; ctx.fillRect(x + 10, y + H - 12, H - 20, 4); }
+}
+
+// The charcoal grill: dark bars over coals (the hot-line file pulses the coals).
+function drawGrill(ctx, tile, x, y, t, hot) {
+  rr(ctx, x + 2, y + 2, H - 4, H - 4, 8, '#3a3434');
+  rr(ctx, x + 7, y + 7, H - 14, H - 18, 5, hot ? '#5a2a18' : '#241e1e', 2.5);
+  if (hot) {
+    const g = ctx.createRadialGradient(x + H / 2, y + H / 2 - 4, 2, x + H / 2, y + H / 2 - 4, 26);
+    g.addColorStop(0, `rgba(255,${120 + Math.sin(t * 8) * 40},40,0.9)`); g.addColorStop(1, 'rgba(255,90,30,0)');
+    ctx.fillStyle = g; ctx.fillRect(x + 8, y + 8, H - 16, H - 20);
+  }
+  ctx.strokeStyle = LV.skillet ? '#d0783a' : '#9aa3ad'; ctx.lineWidth = 3;
+  for (let k = 0; k < 5; k++) { ctx.beginPath(); ctx.moveTo(x + 13 + k * 9.5, y + 10); ctx.lineTo(x + 13 + k * 9.5, y + H - 14); ctx.stroke(); }
+}
+
+// A brass egg timer bought from the shop ticks beside food that is done and waiting on the heat.
+function drawEggTimer(ctx, x, y, t) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(Math.sin(t * 10) * 0.15);
+  ctx.beginPath(); ctx.moveTo(-6, -9); ctx.lineTo(6, -9); ctx.lineTo(-6, 9); ctx.lineTo(6, 9); ctx.closePath();
+  ctx.fillStyle = '#e8b84a'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = INK; ctx.stroke();
+  ctx.restore();
+}
+
+// The tip jar (coins rise with its tier) and the hatch bell, both on the first hatch tile.
+function drawHatchTools(ctx, tile, t) {
+  const x = tile.col * H; const y = tile.y - H / 2;
+  if (LV.jar) {
+    rr(ctx, x + 4, y + H - 30, 18, 24, 5, 'rgba(210,240,255,0.75)', 2);
+    for (let k = 0; k < LV.jar * 3; k++) {
+      ctx.beginPath(); ctx.ellipse(x + 9 + (k % 2) * 7, y + H - 10 - Math.floor(k / 2) * 4, 4, 2, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffd34d'; ctx.fill(); ctx.lineWidth = 1; ctx.strokeStyle = '#8a6a10'; ctx.stroke();
+    }
+  }
+  if (LV.bell) {
+    const bx = x + H - 13; const by = y + H - 16;
+    ctx.beginPath(); ctx.moveTo(bx - 9, by + 6); ctx.quadraticCurveTo(bx - 9, by - 10, bx, by - 10); ctx.quadraticCurveTo(bx + 9, by - 10, bx + 9, by + 6); ctx.closePath();
+    ctx.fillStyle = LV.bell > 1 ? '#ffd34d' : '#d9a13b'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = INK; ctx.stroke();
+    ctx.fillStyle = INK; ctx.fillRect(bx - 2, by - 14, 4, 4);
+  }
 }
 
 function drawCrate(ctx, tile, x, y, glow) {
@@ -133,6 +174,22 @@ function drawStove(ctx, tile, x, y, t) {
     ctx.beginPath(); ctx.arc(0, 0, 23, Math.PI * 1.1, Math.PI * 1.5); ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 3; ctx.stroke();
     ctx.restore();
   }
+  if (tile.type === 'pan' && LV.skillet) {
+    ctx.beginPath(); ctx.arc(x + H / 2, y + H / 2, 23, 0, Math.PI * 2); ctx.strokeStyle = '#d0783a'; ctx.lineWidth = 3; ctx.stroke();
+  }
+}
+
+// A copper lid from the shop, tilted open on the pot's rim and rattling while it boils.
+function drawLid(ctx, tile, t) {
+  const hot = tile.item && nextStep(tile.item) === 'pot';
+  const lift = hot ? Math.abs(Math.sin(t * 16)) * 2 : 0;
+  ctx.beginPath(); ctx.ellipse(tile.x + 18, tile.y - 22 - lift, 15, 6, -0.5, 0, Math.PI * 2);
+  ctx.fillStyle = LV.lid > 1 ? '#e0904a' : '#c87a3a'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = INK; ctx.stroke();
+  ctx.beginPath(); ctx.arc(tile.x + 18, tile.y - 26 - lift, 3, 0, Math.PI * 2); ctx.fillStyle = INK; ctx.fill();
+}
+
+function heatOn(tile) {
+  return !!tile.item && (nextStep(tile.item) === tile.type || (isReady(tile.item) && lastStep(tile.item) === tile.type));
 }
 
 function drawStation(ctx, tile, t, glow) {
@@ -141,7 +198,10 @@ function drawStation(ctx, tile, t, glow) {
     case 'floor': return;
     case 'crate': drawCrate(ctx, tile, x, y, glow); return;
     case 'pan': case 'pot': drawStove(ctx, tile, x, y, t); return;
-    case 'belt': drawBelt(ctx, x, y, t); return;
+    case 'fry': drawFryer(ctx, tile, x, y, t, heatOn(tile)); return;
+    case 'bake': drawOven(ctx, tile, x, y, t, heatOn(tile)); return;
+    case 'grill': drawGrill(ctx, tile, x, y, t, heatOn(tile)); return;
+    case 'belt': return;   // the diner's own file draws its belt
     case 'chop':
       counterBase(ctx, x, y);
       rr(ctx, x + 8, y + 7, H - 16, H - 26, 6, '#e2b170', 2.5);
@@ -149,7 +209,12 @@ function drawStation(ctx, tile, t, glow) {
       return;
     case 'plating':
       counterBase(ctx, x, y);
-      rr(ctx, x + 7, y + 6, H - 14, H - 24, 5, '#2f8f88', 2);
+      rr(ctx, x + 7, y + 6, H - 14, H - 24, 5, LV.warmer ? '#3a9a82' : '#2f8f88', 2);
+      if (LV.warmer) {
+        const w = ctx.createRadialGradient(x + H / 2, y + H / 2 - 6, 2, x + H / 2, y + H / 2 - 6, 30);
+        w.addColorStop(0, `rgba(255,150,60,${0.2 + LV.warmer * 0.1})`); w.addColorStop(1, 'rgba(255,150,60,0)');
+        ctx.fillStyle = w; ctx.fillRect(x + 7, y + 6, H - 14, H - 24);
+      }
       ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(x + 10, y + 12); ctx.lineTo(x + H - 10, y + 12); ctx.stroke();
       return;
@@ -187,6 +252,9 @@ function drawItemOn(ctx, tile, t) {
   const item = tile.item;
   if (!item) return;
   const cx = tile.x; const cy = tile.y - 6;
+  // a soft contact shadow so food sits on the counter instead of floating over it
+  ctx.beginPath(); ctx.ellipse(cx + 3, cy + 16, 22, 7, 0, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(30,15,5,0.22)'; ctx.fill();
   if (item.kind === 'plate') {
     const hatch = tile.type === 'hatch';
     drawPlate(ctx, item.layers, cx, cy + (hatch ? 4 : 0), hatch ? 26 : 25, { glow: hatch });
@@ -196,7 +264,7 @@ function drawItemOn(ctx, tile, t) {
     }
     return;
   }
-  drawIngredient(ctx, item.id, item.stage, cx, cy, tile.type === 'pan' || tile.type === 'pot' ? 16 : 18, item.burnt, item.squash);
+  drawIngredient(ctx, item.id, item.stage, cx, cy, isHeat(tile) ? 16 : 18, item.burnt, item.squash);
 }
 
 // Progress bars, done ticks, burn warnings and the hatch's READY tag, drawn above steam and smoke.
@@ -219,6 +287,9 @@ function drawNeedBubble(ctx, tile, plate, dish) {
   left.forEach((id, i) => drawIngredient(ctx, id, readyStage(id), x + 44 + i * 32, y + 18, 12));
 }
 
+// Progress bar colour by step, so a glance tells the fryer's bar from the oven's.
+const STEP_BAR = { chop: '#7ad04a', pan: '#ffad33', pot: '#4ab8f0', fry: '#ffd23a', bake: '#e8704a', grill: '#ff5a3a' };
+
 function drawBarsFor(ctx, tile, t, focusDish) {
   const item = tile.item;
   const cx = tile.x;
@@ -232,10 +303,11 @@ function drawBarsFor(ctx, tile, t, focusDish) {
   const step = nextStep(item);
   const by = tile.y + 16;
   if (step === tile.type || (step === 'chop' && tile.type === 'chop' && item.progress > 0)) {
-    drawBar(ctx, cx, by, 56, item.progress, step === 'chop' ? '#7ad04a' : '#ffad33');
-  } else if (isReady(item) && (tile.type === 'pan' || tile.type === 'pot') && lastStep(item) === tile.type) {
+    drawBar(ctx, cx, by, 56, item.progress, STEP_BAR[step] || '#ffad33');
+  } else if (isReady(item) && isHeat(tile) && lastStep(item) === tile.type) {
     const b = burnShare(item);
     const danger = b >= WARN_AT;
+    if (LV.timer) drawEggTimer(ctx, cx - 26, tile.y - 22, t);
     const blink = danger && Math.sin(t * 14) > 0;
     drawBar(ctx, cx, by, 56, 1 - b, danger ? '#ff3b2f' : '#5ad15a', blink ? '#7a1010' : INK);
     if (danger) {
@@ -292,27 +364,43 @@ export function drawChef(ctx, chef, t) {
     ctx.beginPath(); ctx.arc(hx + a, hy + b, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
   }
   ctx.beginPath(); ctx.roundRect(hx - 11, hy - 26, 22, 12, 3); ctx.fill();
+  // a whetted knife from the shop: the blade catches the light on every chop
+  if (chef.chopping && LV.knife) {
+    const kx = x + fx * 34 + (fx === 0 ? 14 : 0); const ky = y + fy * 26 - Math.abs(Math.sin(t * 22)) * 8;
+    ctx.save(); ctx.translate(kx, ky); ctx.rotate(fx < 0 ? 0.6 : -0.6);
+    ctx.beginPath(); ctx.moveTo(-3, 0); ctx.lineTo(18, -4); ctx.lineTo(18, 4); ctx.closePath();
+    ctx.fillStyle = '#e8eef2'; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = INK; ctx.stroke();
+    ctx.fillStyle = '#6a3a1a'; ctx.fillRect(-11, -2.5, 9, 5);
+    const flash = Math.max(0, Math.sin(t * 22));
+    ctx.beginPath(); ctx.arc(14, -2, 3 + flash * 5 * LV.knife, 0, Math.PI * 2); ctx.fillStyle = `rgba(255,255,255,${flash * 0.9})`; ctx.fill();
+    ctx.restore();
+  }
+  if (LV.clogs && chef.walk) {
+    for (const k of [-1, 1]) { ctx.beginPath(); ctx.ellipse(chef.x + k * 9, chef.y + 22, 7, 4, 0, 0, Math.PI * 2); ctx.fillStyle = '#c8a46a'; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = INK; ctx.stroke(); }
+  }
   if (chef.hold && fy >= 0) drawHeld(ctx, chef.hold, handX, handY + 6);
   if (chef.hold && fy < 0) drawHeld(ctx, chef.hold, x, y - 72);   // walking away: carried overhead
 }
 
 export function drawKitchen(ctx, game, t, needed) {
   PAL = game.def.palette;
-  const swell = game.hazard.kind === 'swell' && game.hazard.active > 0 ? Math.sin(t * 3) * 0.012 : 0;
+  LV = (game.mods && game.mods.levels) || {};
+  const hz = game.def.hazard;
+  const tilt = hz.tilt ? hz.tilt(game, t) : 0;
   ctx.save();
-  if (swell) { ctx.translate(COLS * H / 2, KITCHEN_Y + ROWS * H / 2); ctx.rotate(swell); ctx.translate(-COLS * H / 2, -(KITCHEN_Y + ROWS * H / 2)); }
+  if (tilt) { ctx.translate(COLS * H / 2, KITCHEN_Y + ROWS * H / 2); ctx.rotate(tilt); ctx.translate(-COLS * H / 2, -(KITCHEN_Y + ROWS * H / 2)); }
   drawFloor(ctx);
   const target = game.phase === 'play' ? facingTile(game) : null;
-  const shut = !hatchOpen(game);
   for (const tile of game.kitchen.list) {
     const glow = tile.type === 'crate' && needed.has(tile.ingredient) ? 0.55 + Math.sin(t * 5) * 0.4 : 0;
     drawStation(ctx, tile, t, glow);
   }
+  if (hz.under) hz.under(ctx, game, t, PAINT);
   for (const tile of game.kitchen.list) drawItemOn(ctx, tile, t);
-  for (const tile of game.kitchen.list) {
-    if (shut && tile.type === 'hatch') drawShutter(ctx, tile.col * H, tile.y - H / 2);
-    if (game.hazard.target === tile && game.hazard.active > 0) drawStoveHazard(ctx, tile, game.hazard.kind, t);
-  }
+  if (LV.lid) for (const tile of game.kitchen.list) if (tile.type === 'pot') drawLid(ctx, tile, t);
+  const firstHatch = game.kitchen.list.find((tile) => tile.type === 'hatch');
+  if (firstHatch) drawHatchTools(ctx, firstHatch, t);
+  if (hz.draw) hz.draw(ctx, game, t, PAINT);
   if (target) {
     ctx.save(); ctx.setLineDash([8, 6]); ctx.lineDashOffset = -t * 30;
     ctx.lineWidth = 3; ctx.strokeStyle = '#ffffff';

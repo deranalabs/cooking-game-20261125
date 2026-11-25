@@ -1,18 +1,25 @@
 // SPDX-License-Identifier: MIT
 // Menu planning: which dishes a kitchen has unlocked, and picking the four the shift will serve.
 import { KITCHENS } from './kitchens/roster.js';
-import { dishById, stepsOf } from './recipes.js';
+import { dishById, stepsOf, lettersFor } from './recipes.js';
 
 export const MENU_SIZE = 4;
 
-// Every dish unlocked by this kitchen and the ones before it, in unlock order.
+// A kitchen can cook a dish when its plan has every crate and station the dish's layers need.
+export function canCook(kitchenDef, dish) {
+  const letters = new Set(kitchenDef.plan.join(''));
+  return [...lettersFor(dish)].every((ch) => letters.has(ch));
+}
+
+// Every dish unlocked by this kitchen and the ones before it that this kitchen can cook, in unlock order.
 export function unlockedDishes(kitchenIndex) {
-  return KITCHENS.slice(0, kitchenIndex + 1).flatMap((k) => k.unlocks);
+  const here = KITCHENS[kitchenIndex];
+  return KITCHENS.slice(0, kitchenIndex + 1).flatMap((k) => k.unlocks).filter((id) => canCook(here, dishById(id)));
 }
 
 // The first plan offered: the kitchen's own new dishes first, then the newest older ones.
 export function defaultMenu(kitchenIndex) {
-  const own = KITCHENS[kitchenIndex].unlocks;
+  const own = KITCHENS[kitchenIndex].unlocks.filter((id) => canCook(KITCHENS[kitchenIndex], dishById(id)));
   const rest = unlockedDishes(kitchenIndex).filter((id) => !own.includes(id)).reverse();
   return [...own, ...rest].slice(0, MENU_SIZE);
 }

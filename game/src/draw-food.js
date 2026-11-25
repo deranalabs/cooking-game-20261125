@@ -210,6 +210,70 @@ const DRAW = {
       ctx.stroke();
     }
   },
+  // raw potato with eyes, then pale wedges off the board, then golden fries out of the fryer
+  potato(ctx, s, stage) {
+    if (stage === 0) {
+      blob(ctx, 0, 0, s * 0.85, s * 0.62, '#b8874a', s, 0.2);
+      for (const [a, b] of [[-0.35, -0.1], [0.2, 0.2], [0.4, -0.25]]) dot(ctx, a * s, b * s, s * 0.06, '#6e4a22');
+      shine(ctx, -s * 0.3, -s * 0.28, s * 0.22, s * 0.1);
+      return;
+    }
+    const fried = stage >= 2;
+    for (let i = 0; i < 6; i++) {
+      ctx.save(); ctx.rotate(-0.6 + i * 0.24); ctx.translate((i - 2.5) * s * 0.12, 0);
+      ctx.beginPath(); ctx.roundRect(-s * 0.1, -s * 0.7, s * 0.2, s * 1.3, s * 0.06);
+      ctx.fillStyle = fried ? (i % 2 ? '#f4b83a' : '#e9a22a') : '#f3e0a6'; ctx.fill(); outline(ctx, s * 0.7);
+      if (fried) { ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillRect(-s * 0.05, -s * 0.6, s * 0.04, s * 0.9); }
+      ctx.restore();
+    }
+  },
+  // a floury dough ball, then a blistered golden bread out of the oven
+  dough(ctx, s, stage) {
+    if (stage === 0) {
+      blob(ctx, 0, s * 0.05, s * 0.85, s * 0.7, '#f4e6c8', s);
+      for (const [a, b] of [[-0.3, -0.2], [0.25, -0.3], [0.1, 0.2], [-0.15, 0.25]]) dot(ctx, a * s, b * s, s * 0.05, '#ffffff');
+      shine(ctx, -s * 0.3, -s * 0.3, s * 0.25, s * 0.12);
+      return;
+    }
+    blob(ctx, 0, 0, s * 0.95, s * 0.8, '#d99a44', s);
+    blob(ctx, 0, 0, s * 0.72, s * 0.58, '#eab868', 0);
+    for (const [a, b] of [[-0.4, -0.2], [0.3, 0.25], [0.1, -0.35], [-0.2, 0.35], [0.45, -0.1]]) dot(ctx, a * s, b * s, s * 0.08, '#7a4a1a');
+    shine(ctx, -s * 0.35, -s * 0.35, s * 0.25, s * 0.1);
+  },
+  // a pink drumstick, then charred from the grill with bar marks
+  chicken(ctx, s, stage) {
+    const done = stage >= 1;
+    ctx.save(); ctx.rotate(-0.5);
+    ctx.beginPath(); ctx.roundRect(s * 0.3, -s * 0.12, s * 0.6, s * 0.24, s * 0.1);
+    ctx.fillStyle = '#f6ecd8'; ctx.fill(); outline(ctx, s * 0.7);
+    dot(ctx, s * 0.92, -s * 0.12, s * 0.13, '#f6ecd8'); dot(ctx, s * 0.92, s * 0.12, s * 0.13, '#f6ecd8');
+    blob(ctx, -s * 0.15, 0, s * 0.62, s * 0.48, done ? '#b8642a' : '#f2a6a0', s);
+    if (done) {
+      ctx.strokeStyle = '#5a2a10'; ctx.lineWidth = s * 0.09;
+      for (const k of [-0.35, -0.05, 0.25]) { ctx.beginPath(); ctx.moveTo(k * s - s * 0.15, -s * 0.35); ctx.lineTo(k * s + s * 0.15, s * 0.35); ctx.stroke(); }
+    }
+    shine(ctx, -s * 0.35, -s * 0.2, s * 0.2, s * 0.09);
+    ctx.restore();
+  },
+  // a red bell pepper, then sliced into strips, then blistered on the grill
+  pepper(ctx, s, stage) {
+    if (stage === 0) {
+      // a tall bell pepper: three lobes, a deep crease between them, a wide green cap and stalk
+      for (const [a, w] of [[-0.42, 0.36], [0.42, 0.36], [0, 0.4]]) blob(ctx, a * s, s * 0.15, w * s, s * 0.78, a ? '#b81e24' : '#d8302a', s);
+      ctx.beginPath(); ctx.ellipse(0, -s * 0.6, s * 0.5, s * 0.16, 0, 0, Math.PI * 2); ctx.fillStyle = '#3f8a2f'; ctx.fill(); outline(ctx, s * 0.6);
+      ctx.beginPath(); ctx.roundRect(-s * 0.07, -s * 0.98, s * 0.14, s * 0.38, s * 0.05); ctx.fillStyle = '#2f6a22'; ctx.fill(); outline(ctx, s * 0.5);
+      shine(ctx, -s * 0.12, -s * 0.15, s * 0.1, s * 0.3);
+      return;
+    }
+    const charred = stage >= 2;
+    for (let i = 0; i < 4; i++) {
+      ctx.save(); ctx.translate((i - 1.5) * s * 0.34, (i % 2) * s * 0.12); ctx.rotate(0.3 - i * 0.2);
+      ctx.beginPath(); ctx.ellipse(0, 0, s * 0.14, s * 0.62, 0, 0, Math.PI * 2);
+      ctx.fillStyle = charred ? '#b8281e' : '#e0382a'; ctx.fill(); outline(ctx, s * 0.6);
+      if (charred) { dot(ctx, 0, -s * 0.2, s * 0.06, '#3a1a10'); dot(ctx, 0, s * 0.25, s * 0.05, '#3a1a10'); }
+      ctx.restore();
+    }
+  },
 };
 
 export function drawIngredient(ctx, id, stage, x, y, s, burnt = false, squash = 0) {
@@ -297,5 +361,6 @@ export function drawPlate(ctx, layers, x, y, s, opts = {}) {
 }
 
 export function readyStage(id) {
-  return { bun: 0, cheese: 0, tomato: 1, lettuce: 1, beef: 1, onion: 2, fish: 2, mushroom: 2, rice: 1, noodles: 1 }[id];
+  return { bun: 0, cheese: 0, tomato: 1, lettuce: 1, beef: 1, onion: 2, fish: 2, mushroom: 2, rice: 1, noodles: 1,
+    potato: 2, dough: 1, chicken: 1, pepper: 2 }[id];
 }

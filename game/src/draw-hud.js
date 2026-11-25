@@ -4,7 +4,7 @@ import { drawIngredient, drawPlate, readyStage } from './draw-food.js';
 import { stepsOf, dishPrice, INGREDIENTS } from './recipes.js';
 import { KITCHEN_Y } from './kitchen-layout.js';
 import { KITCHENS } from './kitchens/roster.js';
-import { moodOf, guestLine, MOOD_COLOR } from './regulars.js';
+import { moodOf, guestLine, MOOD_COLOR, traitTag } from './regulars.js';
 import { hazardStatus } from './hazards.js';
 import { drawGuestFace } from './draw-guest.js';
 
@@ -31,12 +31,25 @@ function outlined(ctx, str, x, y, size, color, align = 'center', line = 6) {
   ctx.fillStyle = color; ctx.fillText(str, x, y);
 }
 
+// One badge per prep step on a ticket: K knife, F frying pan, P pot, D deep fryer, B bake, G grill.
+const STEP_BADGE = { chop: ['#9fb0bd', 'K'], pan: ['#ff8a2a', 'F'], pot: ['#4aa3d8', 'P'],
+  fry: ['#ffd23a', 'D'], bake: ['#e8704a', 'B'], grill: ['#ff5a3a', 'G'] };
 function stepBadge(ctx, step, x, y) {
-  const fill = { chop: '#9fb0bd', pan: '#ff8a2a', pot: '#4aa3d8' }[step];
+  const [fill, letter] = STEP_BADGE[step];
   ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill();
   ctx.lineWidth = 2; ctx.strokeStyle = INK; ctx.stroke();
   ctx.fillStyle = INK; ctx.font = `bold 9px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText({ chop: 'K', pan: 'F', pot: 'P' }[step], x, y + 0.5);
+  ctx.fillText(letter, x, y + 0.5);
+}
+
+// The trait tag under the dish picture: BIG TIPPER, IN A HURRY, LOVES BEEF, NO ONION, RIVAL 1-0.
+function drawTraitTag(ctx, ticket, game, x, y) {
+  const tagInfo = traitTag(ticket.guest, ticket, game.rivalTally);
+  if (!tagInfo) return;
+  ctx.font = `bold 10px ${FONT}`;
+  const w = ctx.measureText(tagInfo.text).width + 12;
+  rr(ctx, x, y, w, 15, 7, tagInfo.color, 2);
+  text(ctx, tagInfo.text, x + w / 2, y + 8, 10, INK, 'center');
 }
 
 export function ticketRect(i) {
@@ -62,7 +75,7 @@ function drawTicket(ctx, ticket, i, game, t) {
   rr(ctx, x + r.w - 70, y + 6, 64, 20, 10, MOOD_COLOR[mood], 2);
   text(ctx, mood.toUpperCase(), x + r.w - 38, y + 16.5, 11, INK, 'center');
   // dish name, price (critics pay more) and picture
-  text(ctx, ticket.dish.name, x + 10, y + 45, 15, INK);
+  text(ctx, ticket.dish.name, x + 10, y + 45, ticket.dish.name.length > 18 ? 12 : 15, INK);
   rr(ctx, x + r.w - 56, y + 36, 50, 19, 9, g.critic ? '#ff9a2a' : '#ffd34d', 2);
   text(ctx, (g.critic ? '★$' : '$') + Math.round(dishPrice(ticket.dish) * (g.critic ? 1.6 : 1)), x + r.w - 31, y + 46, 13, INK, 'center');
   drawPlate(ctx, ticket.dish.layers, x + 40, y + 84, 25, { complete: true });
@@ -72,6 +85,7 @@ function drawTicket(ctx, ticket, i, game, t) {
     drawIngredient(ctx, id, readyStage(id), cx - 6, cy, 10);
     stepsOf(id).forEach((s, j) => stepBadge(ctx, s, cx + 20 - j * 13, cy + 1));
   });
+  drawTraitTag(ctx, ticket, game, x + 6, y + 98);
   // what they say, in their mood
   ctx.save(); ctx.beginPath(); ctx.rect(x + 4, y + 112, r.w - 8, 20); ctx.clip();
   text(ctx, `“${guestLine(game, ticket)}”`, x + 10, y + 123, 13, mood === 'furious' ? '#b0201a' : '#5a3524', 'left', 'italic bold');
@@ -106,7 +120,7 @@ export function drawBoard(ctx, game, fx, t) {
 function drawPanel(ctx, game, fx, t) {
   const x0 = 960; const w = W - x0 - 10;
   rr(ctx, x0, 10, w, 156, 12, '#2a1a12', 3, game.rush && Math.sin(t * 8) > 0 ? '#ff4a2a' : '#c9963f');
-  text(ctx, game.rush ? 'SERVICE RUSH!' : `${game.kitchenIndex + 1}/6  ${game.shift.name}`, x0 + 12, 26,
+  text(ctx, game.rush ? 'SERVICE RUSH!' : `${game.kitchenIndex + 1}/${KITCHENS.length}  ${game.shift.name}`, x0 + 12, 26,
     game.rush ? 20 : 15, game.rush ? '#ff8a5a' : '#f6e2b8');
   const hz = hazardStatus(game);
   rr(ctx, x0 + 122, 38, 176, 20, 10, hz.active ? '#c8261a' : '#4a2a1a', 2, '#c9963f');
@@ -129,7 +143,7 @@ function drawPanel(ctx, game, fx, t) {
   text(ctx, 'SCORE', sx, 70, 13, '#d9c08e');
   text(ctx, String(game.score), sx + 58, 96, 36, '#ffd34d');
   text(ctx, `TIPS $${game.tips}`, sx, 124, 17, '#9fe08a');
-  const mult = 1 + Math.min(Math.max(game.combo - 1, 0), 4) * 0.25;
+  const mult = 1 + Math.min(Math.max(game.combo - 1, 0), game.mods && game.mods.comboCap ? game.mods.comboCap : 4) * 0.25;
   rr(ctx, sx, 138, 162, 22, 11, '#4a2a1a', 2, '#c9963f');
   rr(ctx, sx + 2, 140, Math.max(10, 158 * Math.min(game.combo, 5) / 5), 18, 9, game.combo >= 3 ? '#ff7a2a' : '#e0b040', 0);
   text(ctx, `COMBO x${game.combo} · pay x${mult.toFixed(2)}`, sx + 81, 150, 13, '#fff8e8', 'center');
@@ -150,6 +164,29 @@ export function drawRushBanner(ctx, fx, game, t) {
   ctx.restore();
 }
 
+// A served guest's reaction pops out under the ticket they ordered from: face, their line, what it paid.
+export function drawReactions(ctx, fx, t) {
+  for (const r of fx.reactions) {
+    const rect = ticketRect(r.slot);
+    const grow = Math.min(1, (r.max - r.life) * 6);
+    const a = Math.min(1, r.life * 2);
+    ctx.save(); ctx.globalAlpha = a;
+    ctx.translate(rect.x + rect.w / 2, rect.y + rect.h + 4); ctx.scale(grow, grow);
+    const w = rect.w + 20;
+    ctx.beginPath(); ctx.moveTo(-10, 0); ctx.lineTo(0, -14); ctx.lineTo(10, 0); ctx.closePath();
+    ctx.fillStyle = '#fffaf0'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.stroke();
+    rr(ctx, -w / 2, 0, w, 52, 14, r.mood === 'furious' ? '#ffe0da' : '#fffaf0', 3);
+    drawGuestFace(ctx, r.guest, r.mood, -w / 2 + 26, 26, 17, t);
+    ctx.save(); ctx.beginPath(); ctx.rect(-w / 2 + 48, 2, w - 52, 48); ctx.clip();
+    text(ctx, `“${r.line}”`, -w / 2 + 50, 17, 13, '#5a3524', 'left', 'italic bold');
+    if (r.extra) text(ctx, r.extra, -w / 2 + 50, 37, 14, r.mood === 'furious' ? '#c4201a' : '#2f8f4a');
+    ctx.restore();
+    ctx.restore();
+  }
+}
+
+const STEP_DONE = { chop: 'Chopped', pan: 'Pan-fried', pot: 'Boiled', fry: 'Fried', bake: 'Baked', grill: 'Grilled' };
+
 export function drawHintBar(ctx, game) {
   const y = KITCHEN_Y + 8 * 72;
   ctx.fillStyle = '#24160f'; ctx.fillRect(0, y, W, HGT - y);
@@ -158,6 +195,6 @@ export function drawHintBar(ctx, game) {
   const h = game.chef.hold;
   let label = 'Hands empty';
   if (h && h.kind === 'plate') label = h.layers.length ? `Plate: ${h.layers.map((id) => INGREDIENTS[id].name).join(' + ')}` : 'Clean plate';
-  else if (h) label = `${h.burnt ? 'Burnt' : ['Raw', 'Chopped', 'Cooked'][Math.min(h.stage, 2)]} ${INGREDIENTS[h.id].name}`;
+  else if (h) label = `${h.burnt ? 'Burnt' : h.stage === 0 ? 'Raw' : STEP_DONE[stepsOf(h.id)[h.stage - 1]]} ${INGREDIENTS[h.id].name}`;
   text(ctx, label, W - 16, y + 24, 18, '#ffd34d', 'right');
 }

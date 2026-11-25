@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Kitchen floor plan: the tile grid of counters, crates and stations, and lookups into it.
+import { INGREDIENTS } from './recipes.js';
 
 export const TILE = 64;
 export const KITCHEN_Y = 176;
@@ -14,11 +15,17 @@ export function screenToKitchen(p) {
 }
 
 // Plans live in kitchens/*.js: '#' counter, '.' floor, K chop board, P pan, U pot, A plating counter,
-// H serving hatch, X trash, R plate rack, '>' conveyor belt; lower-case letters are ingredient crates.
-const CRATES = { b: 'bun', t: 'tomato', l: 'lettuce', c: 'cheese', m: 'beef',
-  o: 'onion', f: 'fish', s: 'mushroom', r: 'rice', n: 'noodles' };
+// H serving hatch, X trash, R plate rack, '>' conveyor belt, F fryer, O oven, G grill, '~' awning counter;
+// lower-case letters are ingredient crates (see recipes.js, INGREDIENTS[id].crate).
+const CRATES = Object.fromEntries(Object.entries(INGREDIENTS).map(([id, ing]) => [ing.crate, id]));
 const TYPES = { '#': 'counter', '.': 'floor', K: 'chop', P: 'pan', U: 'pot', A: 'plating',
-  H: 'hatch', X: 'trash', R: 'rack', '>': 'belt' };
+  H: 'hatch', X: 'trash', R: 'rack', '>': 'belt', F: 'fry', O: 'bake', G: 'grill', '~': 'counter' };
+
+// Stations that hold food over heat: the cook time and burn clock run on these.
+export const HEAT_TILES = new Set(['pan', 'pot', 'fry', 'bake', 'grill']);
+export function isHeat(tile) {
+  return !!tile && HEAT_TILES.has(tile.type);
+}
 
 export function buildKitchen(plan) {
   const grid = [];

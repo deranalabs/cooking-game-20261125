@@ -44,9 +44,10 @@ export function drawLedger(ctx, game, ledger, t, W, H) {
     ['Best combo', 'x' + game.bestCombo],
     ['Walked out', String(game.missed)],
     ['Critic plates', String(game.critics.length)],
+    ['Rival Sable Rook', `${(ledger.rival || {}).won || 0}-${(ledger.rival || {}).lost || 0}`],
   ];
   rows.forEach(([k, v], i) => {
-    const y = 268 + i * 36;
+    const y = 262 + i * 32;
     label(ctx, k, 290, y, 21, '#5a3524');
     label(ctx, v, 610, y, 23, INK, 'right');
     ctx.fillStyle = '#e8d6b0'; ctx.fillRect(290, y + 16, 320, 2);
@@ -56,11 +57,11 @@ export function drawLedger(ctx, game, ledger, t, W, H) {
   label(ctx, `stars at ${game.shift.stars.join(' / ')}`, 450, 532, 14, '#8a6a4a', 'center', 'normal');
   // career column: every kitchen with its best stars, and the wallet the shop spends
   card(ctx, 650, 160, 350, 386, 14, '#f3e3c0', 3);
-  label(ctx, `CAREER  ★ ${totalStars(ledger)} / 18`, 825, 184, 18, INK, 'center');
+  label(ctx, `CAREER  ★ ${totalStars(ledger)} / ${KITCHENS.length * 3}`, 825, 184, 18, INK, 'center');
   KITCHENS.forEach((k, i) => {
-    const y = 222 + i * 40;
+    const y = 218 + i * 36;
     const open = i <= ledger.unlocked;
-    card(ctx, 664, y - 16, 322, 32, 8, i === game.kitchenIndex ? '#ffe7a0' : open ? '#fff6df' : '#d8c8a8', 2);
+    card(ctx, 664, y - 15, 322, 30, 8, i === game.kitchenIndex ? '#ffe7a0' : open ? '#fff6df' : '#d8c8a8', 2);
     label(ctx, open ? k.name : 'locked kitchen', 676, y, 15, open ? INK : '#8a7a62');
     for (let s = 0; s < 3; s++) star(ctx, 910 + s * 24, y, 10, s < (ledger.stars[i] || 0));
   });

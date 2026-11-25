@@ -30,7 +30,7 @@ function run(game, seconds, input = idle) {
 test('recipe book is big enough', () => {
   assert.ok(DISHES.length >= 6);
   assert.ok(INGREDIENT_IDS.length >= 8);
-  assert.equal(KITCHENS.length, 6);
+  assert.ok(KITCHENS.length >= 6);
 });
 
 test('plate only takes ready layers that fit a dish on the menu', () => {

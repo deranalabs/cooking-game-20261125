@@ -4,8 +4,10 @@ import { makeIngredient, makePlate, nextStep, isReady, lastStep, advanceStep, ca
 import { ticketForPlate, serveTicket } from './orders.js';
 import { facingTile } from './chef.js';
 import { hatchOpen, heatFor } from './hazards.js';
+import { isHeat } from './kitchen-layout.js';
 
-export const COOK_TIME = { pan: 4.5, pot: 5.5 };
+// Seconds each heat step takes at normal heat: the fryer is quick, the oven slow, the grill in between.
+export const COOK_TIME = { pan: 4.5, pot: 5.5, fry: 4.0, bake: 6.5, grill: 5.0 };
 export const BURN_TIME = 7;          // seconds a done item survives on the heat
 export const WARN_AT = 0.45;         // share of BURN_TIME when the warning starts
 export const CHOP_TIME = 1.0;
@@ -18,7 +20,7 @@ function say(game, type, tile, extra = {}) {
 
 function holderAccepts(tile, item) {
   if (tile.type === 'chop') return item.kind === 'ing';
-  if (tile.type === 'pan' || tile.type === 'pot') return nextStep(item) === tile.type;
+  if (isHeat(tile)) return nextStep(item) === tile.type;
   return tile.type === 'counter' || tile.type === 'plating' || tile.type === 'belt';
 }
 
@@ -54,7 +56,7 @@ export function interact(game) {
     if (!hatchOpen(game)) { say(game, 'nope', tile, { text: 'Shutter is down!' }); return false; }
     const ticket = ticketForPlate(game, hold);
     if (!ticket) { say(game, 'nope', tile, { text: 'No ticket wants that' }); return false; }
-    hold.serving = SERVE_DELAY;
+    hold.serving = SERVE_DELAY * (game.mods && game.mods.serve ? game.mods.serve : 1);
     hold.ticketUid = ticket.uid;
     tile.item = hold; chef.hold = null;
     say(game, 'ready', tile); return true;
@@ -96,6 +98,14 @@ export function canChopHere(game) {
   return !game.chef.hold && !!tile && tile.type === 'chop' && nextStep(tile.item) === 'chop';
 }
 
+// Shop tools shorten cook times: the pot lid for the pot, the cast skillet for pan, fryer and grill.
+export function cookFactor(game, step) {
+  const m = game.mods;
+  if (!m) return 1;
+  if (m.cookBy && m.cookBy[step] !== undefined) return m.cookBy[step];
+  return m.cook ?? 1;
+}
+
 export function burnShare(item) {
   return item.overcook / BURN_TIME;
 }
@@ -106,10 +116,10 @@ export function tickStations(game, dt) {
     if (!item) continue;
     if (item.squash > 0) item.squash = Math.max(0, item.squash - dt * 6);
     if (item.pop > 0) item.pop = Math.max(0, item.pop - dt * 4);
-    if (tile.type === 'pan' || tile.type === 'pot') {
+    if (isHeat(tile)) {
       const heat = heatFor(game, tile);
       if (nextStep(item) === tile.type) {
-        item.progress += (dt * heat) / (COOK_TIME[tile.type] * (game.mods ? game.mods.cook : 1));
+        item.progress += (dt * heat) / (COOK_TIME[tile.type] * cookFactor(game, tile.type));
         if (item.progress >= 1) { advanceStep(item); say(game, 'cooked', tile); }
       } else if (isReady(item) && lastStep(item) === tile.type) {
         const before = burnShare(item);

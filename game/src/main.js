@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Boot and game loop: screens (title, menu plan, shift, stars ledger, shop), input routing, update and draw order.
+// Content first (kitchens, characters, shop, recipes, planner, ledger), then the engine and the renderers.
 import { KITCHENS } from './kitchens/roster.js';
 import { REGULARS } from './regulars.js';
 import { buyUpgrade, modsFor, UPGRADES } from './shop.js';
+import { DISHES } from './recipes.js';
 import { defaultMenu, toggleDish, unlockedDishes, planIsReady } from './menu-planner.js';
 import { recordShift, loadLedger, saveLedger } from './ledger.js';
 import { createGame, tickGame } from './shifts.js';
@@ -13,7 +15,7 @@ import { createInput, inside } from './input.js';
 import { createAudio } from './audio.js';
 import { createFx, handleEvents, tickFx, drawFx } from './effects.js';
 import { drawKitchen, drawTileBars, drawVignette } from './draw-kitchen.js';
-import { drawBoard, drawRushBanner, drawHintBar, ticketRect, W, HGT } from './draw-hud.js';
+import { drawBoard, drawRushBanner, drawHintBar, drawReactions, ticketRect, W, HGT } from './draw-hud.js';
 import { drawTitle, kitchenCardRect, startButton } from './draw-title.js';
 import { drawMenuPlanner, planCardRect, planStartButton } from './draw-menu-planner.js';
 import { drawShop, shopCardRect, shopDoneButton } from './draw-shop.js';
@@ -57,7 +59,8 @@ function openPlanner(i) {
 
 function startShift() {
   app.runs += 1;
-  app.game = createGame(app.planKitchen, seed + app.runs * 101, { menu: app.plan, mods: modsFor(app.ledger.owned) });
+  app.game = createGame(app.planKitchen, seed + app.runs * 101,
+    { menu: app.plan, mods: modsFor(app.ledger.levels || app.ledger.owned), rival: app.ledger.rival });
   app.fx = createFx(seed + app.runs);
   app.screen = 'play'; app.paused = false;
 }
@@ -154,16 +157,22 @@ function neededIngredients(g) {
 function draw() {
   const g = app.game;
   const t = app.t;
+  const fx = app.fx;
   ctx.fillStyle = g.def.palette.wall; ctx.fillRect(0, 0, W, HGT);
-  drawBoard(ctx, g, app.fx, t);
+  ctx.save();
+  if (app.screen === 'play') ctx.translate(fx.shakeX || 0, fx.shakeY || 0);   // a burn shakes the room
+  drawBoard(ctx, g, fx, t);
   ctx.save();
   ctx.translate(VIEW.x, VIEW.y); ctx.scale(VIEW.scale, VIEW.scale); ctx.translate(0, -KITCHEN_Y);
   drawKitchen(ctx, g, t, neededIngredients(g));
-  drawFx(ctx, app.fx);
+  drawFx(ctx, fx);
   drawVignette(ctx, g);
   drawTileBars(ctx, g, t);
   ctx.restore();
-  drawRushBanner(ctx, app.fx, g, t);
+  ctx.restore();
+  if (fx.burnFlash > 0) { ctx.fillStyle = `rgba(255,60,20,${fx.burnFlash * 0.28})`; ctx.fillRect(0, 0, W, HGT); }
+  drawReactions(ctx, fx, t);
+  drawRushBanner(ctx, fx, g, t);
   drawHintBar(ctx, g);
   if (app.screen === 'title') drawTitle(ctx, app.ledger, app.chosen, t, W, HGT);
   if (app.screen === 'plan') drawMenuPlanner(ctx, app.planKitchen, app.plan, t, W, HGT);
@@ -177,7 +186,7 @@ function draw() {
 }
 
 // For the play-test harness: read-only view of the current screen and shift.
-window.__kitchen = { app, regulars: REGULARS.length };
+window.__kitchen = { app, regulars: REGULARS.length, kitchens: KITCHENS.length, dishes: DISHES.length };
 
 let last = performance.now();
 function frame(now) {

@@ -24,7 +24,7 @@ export function drawMenuPlanner(ctx, kitchenIndex, plan, t, W, H) {
   backdrop(ctx, W, H);
   const k = KITCHENS[kitchenIndex];
   title(ctx, `KITCHEN ${kitchenIndex + 1}: ${k.name.toUpperCase()}`, W / 2, 56, 40, '#ffd34d', 'center', 9);
-  label(ctx, k.place, W / 2, 96, 20, '#fff2d0', 'center', 'normal');
+  label(ctx, k.story, W / 2, 96, 18, '#fff2d0', 'center', 'italic');
   card(ctx, 240, 116, 800, 46, 23, '#c8261a', 3);
   label(ctx, `⚠ ${k.hazard.label}: ${k.blurb}`, W / 2, 140, 19, '#fff2d0', 'center');
   label(ctx, `PLAN TODAY'S MENU  ${plan.length} / ${MENU_SIZE}`, W / 2, 196, 26, plan.length === MENU_SIZE ? '#9fe08a' : '#ffd34d', 'center');

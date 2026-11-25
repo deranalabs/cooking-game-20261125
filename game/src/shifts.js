@@ -6,7 +6,7 @@ import { buildKitchen, startTile } from './kitchen-layout.js';
 import { createChef, moveChef } from './chef.js';
 import { tickOrders, addTicket } from './orders.js';
 import { tickStations, chopAt } from './stations.js';
-import { createHazard, tickHazard } from './hazards.js';
+import { createHazard, tickHazard, footingFor } from './hazards.js';
 import { defaultMenu } from './menu-planner.js';
 import { modsFor } from './shop.js';
 import { createRng } from './rng.js';
@@ -34,6 +34,7 @@ export function createGame(kitchenIndex, seed, opts = {}) {
     clock: 0, timeLeft: shift.length, rush: false, frozen: false,
     score: 0, tips: 0, served: 0, missed: 0, burnt: 0, combo: 0, bestCombo: 0, critics: [],
     spawnIn: 6, phase: 'play', events: [],
+    footing: 1, rival: null, rivalSeen: false, rivalTally: opts.rival || { won: 0, lost: 0 },
   };
   addTicket(game, dishById(menu[0]));
   addTicket(game, dishById(menu[1 % menu.length]));
@@ -52,6 +53,7 @@ export function tickGame(game, dt, input) {
     game.rush = true;
     game.events.push({ type: 'rush' });
   }
+  game.footing = footingFor(game);
   const chopping = chopAt(game, dt, input.chopHeld);
   moveChef(game, dt, chopping ? { x: 0, y: 0 } : input.move);
   tickHazard(game, dt);

@@ -24,7 +24,7 @@ export function moveChef(game, dt, move) {
   if (len === 0) { chef.walk = 0; return; }
   mx /= len; my /= len;
   chef.face = Math.abs(mx) > Math.abs(my) ? { x: Math.sign(mx), y: 0 } : { x: 0, y: Math.sign(my) };
-  const speed = SPEED * (game.mods ? game.mods.speed : 1);
+  const speed = SPEED * (game.mods ? game.mods.speed : 1) * (game.footing ?? 1);
   nudgeChef(game, mx * speed * dt, my * speed * dt);
   chef.walk += dt * 10;
 }
